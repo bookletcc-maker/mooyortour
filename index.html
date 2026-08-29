@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ไปไหนดี · เชียงใหม่</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link href="https://fonts.googleapis.com/css2?family=Taviraj:wght@400;500;600&family=Sarabun:wght@300;400;500;600&family=Chakra+Petch:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink-900:#101C30; --ink-800:#182A47; --ink-700:#23395D; --ink-600:#2F4A74;
+  --paper:#EEF2F7; --mist:#96A6C0; --dim:#6C7E9B;
+  --saffron:#F2B441; --leaf:#7DC58A; --chili:#E4675C; --rose:#F08CA0;
+  --t-food:#F2B441; --t-cafe:#C9A0DC; --t-wat:#F0E3B0; --t-market:#E4675C; --t-nature:#7DC58A; --t-attr:#6FB7E0; --t-bar:#9C8CF0;
+  --display:'Taviraj',serif; --body:'Sarabun',system-ui,sans-serif; --data:'Chakra Petch',monospace;
+}
+*{box-sizing:border-box}
+html{background:var(--ink-900)}
+body{margin:0;font-family:var(--body);color:var(--paper);background:var(--ink-900);line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--saffron);outline-offset:2px}
+[hidden]{display:none!important}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+
+/* header */
+header{padding:34px 0 10px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:500;font-size:clamp(34px,5vw,54px);line-height:1.05;margin:0;letter-spacing:-.01em}
+h1 em{font-style:normal;color:var(--saffron)}
+.sub{color:var(--mist);margin:8px 0 0;font-size:15px}
+.sub b{font-family:var(--data);font-weight:500;color:var(--paper)}
+.pick{background:var(--saffron);color:var(--ink-900);border:0;border-radius:999px;padding:14px 22px;font-weight:600;font-size:16px;display:inline-flex;gap:10px;align-items:center;transition:transform .15s}
+.pick:hover{transform:translateY(-1px)}
+.banner{margin:14px 0 0;background:var(--ink-800);border:1px dashed var(--ink-600);color:var(--mist);padding:10px 14px;border-radius:10px;font-size:14px}
+.banner code{font-family:var(--data);color:var(--saffron)}
+
+/* nav */
+nav.tabs{display:flex;gap:6px;margin:18px 0 0;border-bottom:1px solid var(--ink-700);overflow-x:auto}
+nav.tabs button{background:none;border:0;color:var(--mist);padding:10px 14px;font-size:15px;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;display:inline-flex;gap:6px;align-items:center}
+nav.tabs button.on{color:var(--paper);border-color:var(--saffron)}
+nav.tabs button .n{font-family:var(--data);font-size:12px;background:var(--ink-700);padding:1px 7px;border-radius:999px;color:var(--paper)}
+
+/* deck */
+.deck{display:grid;grid-template-columns:1fr 420px;gap:20px;margin:22px 0 10px}
+@media (max-width:860px){.deck{grid-template-columns:1fr}.maphost{min-height:320px}}
+.maphost{background:var(--ink-800);border-radius:18px;overflow:hidden;position:relative;min-height:420px}
+.maphost .map{position:absolute;inset:0}
+.maphost .cap{position:absolute;left:12px;top:12px;z-index:400;font-size:12px;color:var(--paper);background:rgba(16,28,48,.8);padding:4px 10px;border-radius:999px;font-family:var(--data)}
+.maphost .cap a{color:var(--saffron);text-decoration:none}
+.leaflet-container{background:var(--ink-700);font-family:var(--body)}
+.leaflet-tile{filter:brightness(.85) saturate(.9)}
+.pin{display:block;border-radius:50%;border:2px solid var(--ink-900);box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.regsel{display:inline-flex;align-items:center;gap:8px;background:var(--ink-800);border:1px solid var(--ink-600);border-radius:999px;padding:6px 8px 6px 14px;font-size:14px;color:var(--mist)}
+.regsel select{border:0;background:transparent;font-family:var(--display);font-size:20px;color:var(--paper);padding:0 4px}
+.presets{display:flex;gap:8px;flex-wrap:wrap}
+.preset{border:1px solid var(--ink-600);background:var(--ink-900);color:var(--paper);padding:9px 16px;border-radius:12px;font-size:15px;font-weight:500}
+.preset:hover{border-color:var(--saffron)}
+.preset.on{background:var(--saffron);color:var(--ink-900);border-color:var(--saffron)}
+.seg{display:inline-flex;background:var(--ink-900);border:1px solid var(--ink-700);border-radius:10px;padding:3px}
+.seg button{background:transparent;border:0;color:var(--mist);padding:6px 12px;border-radius:8px;font-size:14px}
+.seg button.on{background:var(--ink-600);color:var(--paper)}
+.picks{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:700px){.picks{grid-template-columns:1fr}}
+.pickcard{background:var(--ink-900);border:1px solid var(--ink-700);border-radius:12px;padding:10px 12px;text-align:left;color:var(--paper);display:grid;gap:2px}
+.pickcard:hover{border-color:var(--saffron)}
+.pickcard .t{font-family:var(--display);font-size:17px;font-weight:500;line-height:1.2}
+.pickcard small{color:var(--mist);font-size:12px}
+.pickcard .why{color:var(--saffron);font-size:12px;font-family:var(--data)}
+.filters,.panel{background:var(--ink-800);border-radius:18px;padding:18px 20px;display:grid;gap:16px;align-content:start}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+label.lbl{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mist);font-family:var(--data);display:block;margin-bottom:6px}
+.search,input.txt,textarea.txt{width:100%;background:var(--ink-900);border:1px solid var(--ink-700);color:var(--paper);border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--ink-600);background:transparent;color:var(--paper);padding:6px 12px;border-radius:999px;font-size:14px;display:inline-flex;align-items:center;gap:7px}
+.chip .dot{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.chip.on{background:var(--ink-600);border-color:var(--paper)}
+.range{display:grid;gap:4px}
+.range .val{font-family:var(--data);color:var(--saffron);font-size:18px;font-weight:600}
+.range .val small{color:var(--mist);font-size:12px;font-family:var(--body);margin-left:4px}
+input[type=range]{width:100%;accent-color:var(--saffron)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
+select,.tog,.btn{background:var(--ink-900);border:1px solid var(--ink-700);color:var(--paper);border-radius:10px;padding:8px 12px;font-size:14px;font-family:inherit}
+.btn:hover{border-color:var(--saffron)}
+.btn.pri{background:var(--saffron);color:var(--ink-900);border-color:var(--saffron);font-weight:600}
+.btn.danger{color:var(--chili)}
+.tog{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
+.tog input{accent-color:var(--saffron)}
+
+/* results */
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 4px 10px;color:var(--mist)}
+.bar b{color:var(--paper);font-family:var(--data)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;padding-bottom:80px}
+.card{background:var(--ink-800);border-radius:16px;overflow:hidden;border:1px solid transparent;display:flex;flex-direction:column;transition:border-color .2s,transform .2s;position:relative}
+.card.hot{border-color:var(--saffron);transform:translateY(-2px)}
+.card .img{height:150px;background:var(--ink-700);position:relative;display:flex;align-items:flex-end;padding:12px}
+.card .img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.card .img::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(16,28,48,0) 40%,rgba(16,28,48,.85))}
+.card .img .ph{position:absolute;inset:0;background:radial-gradient(120% 90% at 20% 10%,color-mix(in srgb,var(--c) 45%,var(--ink-700)),var(--ink-800) 70%)}
+.card .img .ph span{position:absolute;right:14px;top:8px;font-family:var(--display);font-size:72px;color:color-mix(in srgb,var(--c) 40%,transparent);line-height:1}
+.card .img .min{position:relative;z-index:1;font-family:var(--data);font-weight:600;font-size:26px;line-height:1}
+.card .img .min small{font-size:12px;font-weight:500;color:var(--mist);margin-left:4px;font-family:var(--body)}
+.card .img .badge{position:absolute;left:12px;top:12px;z-index:1;background:var(--c);color:var(--ink-900);font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px}
+.card .img .badge.man{left:auto;right:12px;top:auto;bottom:16px;background:var(--ink-900);color:var(--mist);border:1px solid var(--ink-600)}
+.card .img .open{position:absolute;right:12px;top:12px;z-index:1;font-size:12px;padding:3px 9px;border-radius:999px;background:rgba(16,28,48,.7);border:1px solid var(--ink-600)}
+.card .img .open.y{color:var(--leaf);border-color:var(--leaf)}
+.card .img .open.n{color:var(--chili);border-color:var(--chili)}
+.body{padding:14px 16px 16px;display:grid;gap:10px;flex:1}
+.name{font-family:var(--display);font-weight:500;font-size:22px;line-height:1.2;margin:0}
+.stats{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mist)}
+.stats .k{font-family:var(--data);color:var(--paper);font-weight:600;font-size:15px}
+.stats .star{color:var(--saffron)}
+.park{font-size:14px;display:flex;gap:8px;align-items:flex-start}
+.park .s{flex:none;font-weight:600;padding:1px 8px;border-radius:6px;font-size:12px;line-height:20px}
+.park .s.มี{background:color-mix(in srgb,var(--leaf) 22%,transparent);color:var(--leaf)}
+.park .s.จำกัด{background:color-mix(in srgb,var(--saffron) 22%,transparent);color:var(--saffron)}
+.park .s.ไม่มี{background:color-mix(in srgb,var(--chili) 22%,transparent);color:var(--chili)}
+.park .s.ไม่ทราบ{background:var(--ink-700);color:var(--mist)}
+.park .n{color:var(--mist)}
+.sec{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-family:var(--data);margin-bottom:4px}
+.menu{display:flex;gap:6px;flex-wrap:wrap}
+.menu span{background:var(--ink-700);padding:3px 10px;border-radius:6px;font-size:13px}
+ul.hl{margin:0;padding-left:18px;font-size:14px}
+ul.hl li{margin:2px 0}
+ul.hl li.c{color:var(--chili)}
+.links{display:flex;gap:6px;flex-wrap:wrap;font-size:13px}
+.links button{background:transparent;border:1px solid var(--ink-600);color:var(--paper);border-radius:999px;padding:3px 10px;font-size:13px}
+.links button:hover{border-color:var(--saffron)}
+.links .via{color:var(--mist);font-size:12px;align-self:center}
+.note{font-size:14px;color:var(--mist);font-style:italic}
+.amen{display:flex;gap:6px;flex-wrap:wrap}
+.amen span{font-size:12px;background:var(--ink-700);padding:2px 8px;border-radius:6px;color:var(--paper)}
+.gsum{font-size:13px;color:var(--mist);border-left:2px solid var(--ink-600);padding-left:10px}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:6px;border-top:1px solid var(--ink-700);font-size:13px;color:var(--mist)}
+.foot a{color:var(--saffron);text-decoration:none;font-weight:500}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.acts button{border:1px solid var(--ink-600);background:var(--ink-900);color:var(--paper);border-radius:999px;padding:5px 12px;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.acts button.on{border-color:var(--saffron);color:var(--saffron)}
+.acts button.heart.on{border-color:var(--rose);color:var(--rose)}
+.empty{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--mist)}
+.empty b{display:block;color:var(--paper);font-family:var(--display);font-size:24px;font-weight:500;margin-bottom:6px}
+
+/* trip view */
+.trip{display:grid;grid-template-columns:1fr 340px;gap:20px;margin:22px 0 60px}
+@media (max-width:860px){.trip{grid-template-columns:1fr}}
+.stops{display:grid;gap:0}
+.stop{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:12px 8px;border-radius:12px}
+.stop:hover{background:var(--ink-700)}
+.stop .idx{font-family:var(--data);font-weight:600;font-size:20px;color:var(--saffron);text-align:center}
+.stop .nm{font-family:var(--display);font-size:19px;font-weight:500;line-height:1.2}
+.stop .meta{font-size:13px;color:var(--mist)}
+.stop .ctl{display:flex;gap:4px}
+.stop .ctl button{background:transparent;border:1px solid var(--ink-600);color:var(--mist);border-radius:8px;width:30px;height:30px;font-size:14px}
+.stop .ctl button:hover{color:var(--paper);border-color:var(--paper)}
+.leg{display:flex;align-items:center;gap:10px;padding:0 0 0 22px;color:var(--dim);font-size:12px;font-family:var(--data)}
+.leg::before{content:"";width:2px;height:22px;background:var(--ink-600);margin-left:-5px}
+.legorigin{color:var(--mist);font-size:13px;padding:4px 8px 4px 20px}
+.legorigin b{color:var(--paper);font-family:var(--data);font-weight:500}
+.sum{display:grid;gap:10px}
+.sum .big{font-family:var(--data);font-size:34px;font-weight:600;color:var(--saffron);line-height:1}
+.sum .big small{font-size:13px;color:var(--mist);font-family:var(--body);font-weight:400;margin-left:6px}
+.sugg{display:grid;gap:6px}
+.sugg button{text-align:left;background:var(--ink-900);border:1px solid var(--ink-700);color:var(--paper);border-radius:10px;padding:8px 12px;font-size:14px;display:grid;gap:2px}
+.sugg button:hover{border-color:var(--saffron)}
+.sugg button small{color:var(--mist)}
+h2.h{font-family:var(--display);font-weight:500;font-size:24px;margin:0}
+.tripname{font-family:var(--display);font-size:28px;font-weight:500;background:none;border:0;border-bottom:1px dashed var(--ink-600);color:var(--paper);width:100%;padding:4px 0}
+
+/* manual form */
+.form{display:grid;gap:12px;max-width:640px}
+.hint{font-size:13px;color:var(--mist)}
+.hint b{color:var(--leaf);font-weight:500}
+.mlist{display:grid;gap:8px;margin-top:8px}
+
+/* floating trip tray */
+.tray{position:fixed;right:20px;bottom:20px;background:var(--ink-800);border:1px solid var(--ink-600);border-radius:14px;padding:10px 14px;display:flex;gap:12px;align-items:center;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:5;font-size:14px}
+.tray b{font-family:var(--data);color:var(--saffron)}
+.tray button{background:var(--saffron);color:var(--ink-900);border:0;border-radius:999px;padding:6px 14px;font-weight:600;font-size:13px}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(6,12,24,.8);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
+.modal.on{display:flex}
+.modal .box{width:min(480px,100%);max-height:90vh;overflow:auto;display:grid;gap:12px}
+.modal .card{transform:none}
+.modal .act{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.modal .act button,.modal .act a{border-radius:999px;padding:10px 18px;border:1px solid var(--ink-600);background:var(--ink-800);color:var(--paper);font-size:15px;text-decoration:none}
+.modal .act .go{background:var(--saffron);color:var(--ink-900);border-color:var(--saffron);font-weight:600}
+.modal .ttl{font-family:var(--display);font-size:20px;color:var(--mist)}
+.modal .ttl b{color:var(--paper);font-weight:500}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--paper);color:var(--ink-900);padding:8px 16px;border-radius:999px;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+.toast.on{opacity:1}
+.tmenu{position:absolute;z-index:30;background:var(--ink-800);border:1px solid var(--ink-600);border-radius:12px;padding:6px;display:grid;gap:2px;min-width:200px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.tmenu button{background:transparent;border:0;color:var(--paper);text-align:left;padding:8px 10px;border-radius:8px;font-size:14px;display:flex;justify-content:space-between;gap:10px}
+.tmenu button:hover{background:var(--ink-700)}
+.tmenu button.in{color:var(--saffron)}
+.tmenu .new{border-top:1px solid var(--ink-700);color:var(--mist);margin-top:4px}
+.acts a.gm{border:1px solid var(--ink-600);background:var(--ink-900);color:var(--paper);border-radius:999px;padding:5px 12px;font-size:13px;text-decoration:none;display:inline-flex;gap:6px;align-items:center}
+.acts a.gm:hover{border-color:var(--leaf);color:var(--leaf)}
+.linkbox{display:grid;gap:8px;background:var(--ink-900);border:1px solid var(--ink-600);border-radius:14px;padding:14px}
+.linkbox .row input{flex:1;min-width:0}
+.linkbox .st{font-size:13px;color:var(--mist)}
+.linkbox .st.ok{color:var(--leaf)}.linkbox .st.err{color:var(--chili)}
+details.adv summary{cursor:pointer;color:var(--mist);font-size:14px;margin:4px 0}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--mist);border-top-color:var(--saffron);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* ---- mobile ---- */
+@media (max-width:700px){
+  .wrap{padding:0 12px}
+  header{padding:18px 0 6px;gap:10px}
+  h1{font-size:30px}
+  .sub{font-size:13px}
+  .pick{width:100%;justify-content:center;padding:13px}
+  nav.tabs{position:sticky;top:0;background:var(--ink-900);z-index:6;margin-top:10px}
+  nav.tabs button{padding:10px 10px;font-size:14px}
+  .deck{gap:12px;margin-top:12px}
+  .maphost{min-height:240px;order:2}
+  .filters{padding:14px;gap:12px;order:1}
+  .presets{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;margin:0 -14px;padding-left:14px;padding-right:14px;scrollbar-width:none}
+  .presets::-webkit-scrollbar{display:none}
+  .preset{white-space:nowrap;padding:9px 14px}
+  .chips{gap:6px}
+  .chip{padding:6px 10px;font-size:13px}
+  .row select,.row .btn{flex:1 1 45%}
+  .cards{grid-template-columns:1fr;gap:12px;padding-bottom:100px}
+  .card .img{height:130px}
+  .name{font-size:20px}
+  .picks{grid-template-columns:1fr}
+  .trip{gap:12px;margin-top:12px}
+  .panel{padding:14px}
+  .tray{left:12px;right:12px;bottom:12px;justify-content:space-between}
+  .modal{padding:10px;align-items:flex-end}
+  .modal .box{max-height:92vh}
+  .stop{grid-template-columns:28px 1fr auto;gap:8px}
+  .stop .nm{font-size:16px}
+  .stop .ctl button{width:34px;height:34px}
+  .linkbox .row{flex-direction:column;align-items:stretch}
+  .acts a.gm,.acts button{padding:7px 12px}
+}
+.share{border:1px solid var(--ink-600);background:var(--ink-800);color:var(--paper);border-radius:999px;padding:8px 14px;font-size:14px;display:inline-flex;gap:8px;align-items:center}
+.share.on{border-color:var(--leaf);color:var(--leaf)}
+.share .dot{width:8px;height:8px;border-radius:50%;background:var(--mist)}
+.share.on .dot{background:var(--leaf);box-shadow:0 0 6px var(--leaf)}
+.sharebox{display:grid;gap:12px;background:var(--ink-800);border-radius:16px;padding:18px}
+.sharebox .link{font-family:var(--data);font-size:13px;word-break:break-all;background:var(--ink-900);padding:10px;border-radius:10px;color:var(--saffron)}
+.by{font-size:11px;color:var(--mist);margin-left:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>วันนี้ไปไหนดี<em>,</em> <span id="regionName">เชียงใหม่</span></h1>
+    <p class="sub"><span class="regsel">พื้นที่ <select id="regionSel" aria-label="เลือกพื้นที่"></select></span> &nbsp; วัดระยะเป็นนาทีเดินทางจาก <b id="originName">–</b> · อัปเดต <b id="updated">–</b></p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="share" id="shareBtn"><span class="dot"></span><span id="shareTxt">ใช้ร่วมกัน</span></button><button class="pick" id="pickBtn">🎲 ตัดสินใจให้เลย</button></div>
+</header>
+<div class="banner" id="banner" hidden>ตอนนี้แสดง<b>ข้อมูลตัวอย่าง</b> ตัวเลขรีวิว นาที และที่จอดรถเป็นค่าสมมติ — รัน <code>python collect.py</code> เพื่อดึงข้อมูลจริงจาก Google Places</div>
+<div class="banner" id="storeWarn" hidden>เบราว์เซอร์นี้บล็อกการบันทึก — รายการที่สนใจ ทริป และร้านที่เพิ่มเองจะหายเมื่อปิดหน้า ลองเปิดไฟล์นี้ในเบราว์เซอร์ปกติ</div>
+
+<nav class="tabs" id="tabs">
+  <button data-v="all" class="on">ค้นหา</button>
+  <button data-v="watch">♥ ที่สนใจ <span class="n" id="nWatch">0</span></button>
+  <button data-v="trip">ทริป <span class="n" id="nTrip">0</span></button>
+  <button data-v="manual">+ เพิ่มร้านเอง <span class="n" id="nManual">0</span></button>
+</nav>
+
+<!-- ===== ค้นหา / ที่สนใจ ===== -->
+<div id="vList">
+<section class="deck">
+  <div class="maphost" id="mapHost"><div class="map" id="map"></div><div class="cap" id="mapCap">แผนที่</div></div>
+  <div class="filters">
+    <div><label class="lbl">อยากไปแบบไหน</label><div class="presets" id="presets"></div></div>
+    <div><label class="lbl">ประเภท</label><div class="chips" id="types"></div></div>
+    <div id="cuisineRow" hidden><label class="lbl">แนวอาหาร</label><div class="chips" id="cuisines"></div></div>
+    <div id="tagRow" hidden><label class="lbl">บรรยากาศ</label><div class="chips" id="tagChips"></div></div>
+    <div class="range"><label class="lbl" for="mins">ไม่เกิน</label><div class="val"><span id="minsVal">45</span><small>นาทีเดินทาง</small></div><input type="range" id="mins" min="5" max="120" step="5" value="45"></div>
+    <div>
+      <label class="lbl">เกณฑ์รีวิว</label>
+      <div class="row" style="gap:8px"><div class="seg" id="modeSeg"><button data-m="score" class="on">คะแนนถ่วงน้ำหนัก</button><button data-m="popular">ยอดนิยม</button></div></div>
+      <div class="range" id="scoreBox" style="margin-top:10px"><div class="val"><span id="scoreVal">4.0</span><small>ดาว × ความน่าเชื่อจากจำนวนรีวิว</small></div><input type="range" id="score" min="3" max="5" step="0.1" value="4.0"></div>
+      <div class="range" id="popBox" style="margin-top:10px" hidden><div class="val"><span id="popVal">1,000</span><small>รีวิวขึ้นไป · ไม่ถ่วงน้ำหนัก</small></div><input type="range" id="pop" min="0" max="7" step="1" value="3"></div>
+    </div>
+    <div class="row">
+      <select id="park" aria-label="ที่จอดรถ"><option value="">ที่จอดรถ: ทั้งหมด</option><option value="มี">มีที่จอด</option><option value="มี,จำกัด">มีหรือจำกัด</option></select>
+      <select id="price" aria-label="ราคา"><option value="">ราคา: ทั้งหมด</option><option value="0,1">ประหยัด/ฟรี</option><option value="2">ปานกลาง</option><option value="3">สูง</option></select>
+      <label class="tog"><input type="checkbox" id="openNow"> เปิดอยู่ตอนนี้</label>
+      <select id="sort" aria-label="เรียงตาม"><option value="score">เรียง: คะแนน</option><option value="count">เรียง: รีวิวเยอะสุด</option><option value="minutes">เรียง: ใกล้สุด</option><option value="opened">เรียง: เปิดใหม่สุด</option></select>
+      <button class="btn" id="reset">ล้างตัวกรอง</button>
+    </div>
+  </div>
+</section>
+<section class="panel" id="topPicks" style="margin-bottom:6px"><div class="sec">แนะนำตอนนี้ — ดีที่สุดในเกณฑ์ที่เลือก</div><div class="picks" id="picks"></div></section>
+<div class="bar"><span>พบ <b id="n">0</b> ที่</span><span id="formula"></span><span id="watchTools" hidden><button class="btn" id="kmlBtn">ส่งออก KML ไป Google My Maps (แชร์ให้แฟน)</button></span></div>
+<section class="cards" id="cards"></section>
+</div>
+
+<!-- ===== ทริป ===== -->
+<div id="vTrip" hidden>
+<section class="trip">
+  <div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <select id="tripSel" aria-label="เลือกทริป"></select>
+      <div class="row">
+        <button class="btn" id="tripNew">+ ทริปใหม่</button>
+        <button class="btn danger" id="tripDel">ลบทริปนี้</button>
+      </div>
+    </div>
+    <input class="tripname" id="tripName" placeholder="ตั้งชื่อทริป เช่น เสาร์นี้กับแม่" aria-label="ชื่อทริป">
+    <div id="tripMapSlot" style="min-height:300px;border-radius:14px;overflow:hidden;position:relative"></div>
+    <div id="stops" class="stops"></div>
+  </div>
+  <div style="display:grid;gap:20px;align-content:start">
+    <div class="panel sum">
+      <div><div class="sec">เวลาบนถนนโดยประมาณ</div><div class="big" id="tripMin">0<small>นาที · ยังไม่รวมเวลาที่แต่ละที่</small></div></div>
+      <div class="hint" id="tripHint">เริ่มจากประตูท่าแพ → แวะตามลำดับ · ตัวเลขระหว่างจุดเป็นค่าประมาณจากระยะเส้นตรง</div>
+      <a class="btn pri" id="tripMaps" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">เปิดเส้นทางทั้งทริปใน Google Maps</a>
+      <div class="row"><button class="btn" id="tripCopy">คัดลอกเป็นข้อความ</button><button class="btn" id="tripExport">ส่งออก JSON</button></div>
+    </div>
+    <div class="panel">
+      <div class="sec">แวะเพิ่มระหว่างทาง (ใกล้จุดที่เลือกแล้ว)</div>
+      <div class="sugg" id="sugg"></div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ===== เพิ่มร้านเอง ===== -->
+<div id="vManual" hidden>
+<section class="trip">
+  <div class="panel">
+    <h2 class="h">เพิ่มร้าน/ที่เที่ยวที่เจอมาเอง</h2>
+    <div class="linkbox">
+      <label class="lbl" for="lUrl">แปะลิงก์ที่เจอ แล้วให้ระบบไปเช็คต่อ</label>
+      <div class="row"><input class="txt" id="lUrl" placeholder="ลิงก์ Google Maps / maps.app.goo.gl / เพจ / รีวิว"><button class="btn pri" id="lGo">ดึงข้อมูล</button></div>
+      <div class="st" id="lSt">ระบบจะเปิดลิงก์ ดึงชื่อ+พิกัด แล้วค้นใน Google Places เพื่อเติมรีวิว ที่จอดรถ เวลาเปิด และนาทีจากจุดศูนย์กลางให้เอง</div>
+    </div>
+    <details class="adv"><summary>หรือกรอกเอง</summary>
+    <div class="form">
+      <div><label class="lbl" for="mName">ชื่อร้าน *</label><input class="txt" id="mName" placeholder="เช่น ร้านลาบเมืองใหม่ แม่ริม"></div>
+      <div class="grid2">
+        <div><label class="lbl" for="mType">ประเภท</label><select id="mType" style="width:100%"></select></div>
+        <div><label class="lbl" for="mCuisine">แนวอาหาร (ถ้าเป็นร้านอาหาร)</label><input class="txt" id="mCuisine" list="cuisineList" placeholder="เช่น ญี่ปุ่น เกาหลี อาหารเหนือ"><datalist id="cuisineList"><option>ไทย</option><option>อาหารเหนือ</option><option>อีสาน</option><option>ญี่ปุ่น</option><option>เกาหลี</option><option>จีน</option><option>อิตาเลียน</option><option>อเมริกัน</option><option>สเต็ก</option><option>ซีฟู้ด</option><option>ปิ้งย่าง</option><option>ก๋วยเตี๋ยว</option><option>อาหารเช้า</option><option>มังสวิรัติ</option></datalist></div>
+        <div><label class="lbl" for="mUrl">ลิงก์รีวิว / Google Maps / เพจ</label><input class="txt" id="mUrl" placeholder="วางลิงก์ (ถ้ามี)"></div>
+      </div>
+      <div><label class="lbl" for="mLoc">พิกัด หรือลิงก์ Google Maps ที่มีพิกัด</label><input class="txt" id="mLoc" placeholder="18.7877, 98.9931 หรือวางลิงก์ maps.google.com/...@18.78,98.99"><div class="hint" id="mLocHint">ถ้ามีพิกัด ระบบจะประเมินนาทีและวางบนแผนที่ให้ (ประมาณ) — รัน collect.py ทีหลังจะได้ค่าจริง</div></div>
+      <div><label class="lbl" for="mNote">โน้ต / ทำไมถึงสนใจ</label><textarea class="txt" id="mNote" rows="2" placeholder="เช่น เพื่อนบอกว่าลาบดีมาก ไปตอนเย็น"></textarea></div>
+      <div class="row"><button class="btn pri" id="mAdd">เพิ่มเข้ารายการ</button><label class="tog"><input type="checkbox" id="mWatch" checked> ใส่ที่สนใจด้วย</label></div>
+    </div></details>
+  </div>
+  <div class="panel" style="align-content:start">
+    <div class="sec">ที่เพิ่มเองแล้ว</div>
+    <div class="mlist" id="mList"></div>
+    <div class="hint" style="margin-top:8px">ส่งออกเป็น <code>manual.json</code> วางไว้ข้าง <code>collect.py</code> แล้วรันใหม่ — สคริปต์จะค้นชื่อร้านใน Google และเติมรีวิว นาที ที่จอดรถ ให้อัตโนมัติ</div>
+    <button class="btn" id="mExport">ส่งออก manual.json</button>
+  </div>
+</section>
+</div>
+</div>
+
+<div class="tray" id="tray" hidden><span>ทริป: <b id="trayN">0</b> จุด</span><button id="trayGo">ดูทริป</button></div>
+<div class="toast" id="toast"></div>
+<div class="modal" id="shareModal" role="dialog" aria-modal="true" aria-label="ใช้ร่วมกัน"><div class="box"><div class="sharebox">
+  <h2 class="h">ใช้ร่วมกันกับอีกคน</h2>
+  <div id="shareOff" hidden class="hint">ยังไม่ได้ตั้งค่า Supabase ใน <code>config.js</code> — ตอนนี้ที่ถูกใจ/ทริปเก็บเฉพาะในเครื่องนี้</div>
+  <div id="shareNew" hidden><div class="hint" style="margin-bottom:10px">สร้างพื้นที่ร่วม แล้วส่งลิงก์ให้อีกคนเปิดครั้งเดียว ทุกเครื่องที่เปิดลิงก์นั้นจะเห็นที่ถูกใจ ทริป และร้านที่เพิ่มเองชุดเดียวกันแบบทันที</div><button class="btn pri" id="shareCreate">สร้างพื้นที่ร่วม</button></div>
+  <div id="shareOn" hidden>
+    <label class="lbl">ลิงก์สำหรับส่งให้อีกคน</label><div class="link" id="shareLink"></div>
+    <div class="row" style="margin-top:8px"><button class="btn pri" id="shareCopy">คัดลอกลิงก์</button><span class="hint" id="shareState"></span></div>
+  </div>
+  <div><label class="lbl" for="meName">ชื่อเล่นของคุณ (โชว์ว่าใครเป็นคนเพิ่ม)</label><input class="txt" id="meName" placeholder="เช่น บุ๊ค"></div>
+  <div class="act" style="display:flex;justify-content:flex-end;gap:10px"><button class="btn danger" id="shareLeave" hidden>ออกจากพื้นที่ร่วม</button><button class="btn" id="shareClose">ปิด</button></div>
+</div></div></div>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="ผลการสุ่ม">
+  <div class="box">
+    <div class="ttl">ทอยแล้วได้ <b id="modalTtl"></b></div>
+    <div id="modalCard"></div>
+    <div class="act"><button id="closeBtn">ปิด</button><button id="againBtn">สุ่มใหม่</button><a id="goBtn" class="go" target="_blank" rel="noopener">ไปกันเลย · เปิดแผนที่</a></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="regions.js"></script>
+<script>
+// ===================== ภูมิภาค / ข้อมูล =====================
+const CONFIG=window.CONFIG||{}, REGIONS=window.REGIONS||{};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TYPE_COLOR={"ร้านอาหาร":"#F2B441","คาเฟ่":"#C9A0DC","วัด":"#F0E3B0","ตลาด":"#E4675C","ธรรมชาติ":"#7DC58A","ที่เที่ยว":"#6FB7E0","บาร์":"#9C8CF0"};
+const TYPE_ORDER=["ร้านอาหาร","คาเฟ่","บาร์","วัด","ตลาด","ธรรมชาติ","ที่เที่ยว"];
+const POP_STEPS=[0,100,300,500,1000,2000,5000,10000];
+
+let REG=null, REGID=null, PLACES=[], META={}, O={lat:0,lng:0};
+let watch=new Set(), watchBy={}, manual=[], trips=[], curTrip=null;
+
+// ===================== storage: localStorage + พื้นที่ร่วม (Supabase) =====================
+const mem={};
+const ls={get(k){try{return localStorage.getItem(k);}catch(e){return mem[k]??null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){mem[k]=v;$('storeWarn').hidden=false;}},del(k){try{localStorage.removeItem(k);}catch(e){delete mem[k];}}};
+const sync={
+  enabled:!!(CONFIG.supabaseUrl&&CONFIG.supabaseAnonKey&&window.supabase), client:null, space:null, doc:{}, live:false, timer:null, dirty:new Set(),
+  init(){
+    const u=new URL(location.href); const fromUrl=u.searchParams.get('space');
+    if(fromUrl){ls.set('cm.space',fromUrl);u.searchParams.delete('space');history.replaceState(null,'',u.pathname+(u.search||'')+u.hash);}
+    this.space=ls.get('cm.space'); if(!this.enabled||!this.space){this.updateBtn();return;}
+    this.client=window.supabase.createClient(CONFIG.supabaseUrl,CONFIG.supabaseAnonKey);
+    this.pull().then(()=>{this.subscribe();});
+  },
+  async pull(){
+    try{const {data,error}=await this.client.from('spaces').select('data').eq('id',this.space).maybeSingle(); if(error)throw error;
+      if(data){this.doc=data.data||{};}
+      else{ // พื้นที่ใหม่ → เอาของในเครื่องนี้ไปตั้งต้น
+        this.doc={}; Object.keys(localStorage).filter(k=>k.startsWith('cm.')&&/\.(watch|watchBy|manual|trips|curTrip)$/.test(k)).forEach(k=>{try{this.doc[k]=JSON.parse(localStorage.getItem(k));}catch(e){}});
+        await this.client.from('spaces').insert({id:this.space,data:this.doc}); }
+      this.live=true; this.updateBtn(); if(REGID)reloadState();
+    }catch(e){console.warn('sync pull',e);this.live=false;this.updateBtn();toast('เชื่อมพื้นที่ร่วมไม่ได้: '+(e.message||e));}
+  },
+  subscribe(){
+    this.client.channel('space-'+this.space).on('postgres_changes',{event:'*',schema:'public',table:'spaces',filter:`id=eq.${this.space}`},payload=>{
+      if(payload.new?.data){const incoming=payload.new.data; if(JSON.stringify(incoming)===JSON.stringify(this.doc))return; this.doc=incoming; if(REGID){reloadState();toast('อัปเดตจากอีกเครื่อง');}}
+    }).subscribe(st=>{this.live=st==='SUBSCRIBED';this.updateBtn();});
+  },
+  set(k,v){ this.doc[k]=v; this.dirty.add(k); clearTimeout(this.timer); this.timer=setTimeout(()=>this.push(),400); },
+  async push(){
+    if(!this.client)return; const keys=[...this.dirty]; this.dirty.clear();
+    try{ // รวมกับของล่าสุดบนเซิร์ฟเวอร์ทีละ key (ลดการทับกันเมื่อสองคนกดพร้อมกัน)
+      const {data}=await this.client.from('spaces').select('data').eq('id',this.space).maybeSingle();
+      const merged={...(data?.data||{})}; keys.forEach(k=>merged[k]=this.doc[k]); this.doc=merged;
+      const {error}=await this.client.from('spaces').upsert({id:this.space,data:merged,updated_at:new Date().toISOString()}); if(error)throw error;
+    }catch(e){console.warn('sync push',e);toast('บันทึกขึ้นพื้นที่ร่วมไม่สำเร็จ');}
+  },
+  create(){ const id=Array.from(crypto.getRandomValues(new Uint8Array(18)),b=>'abcdefghijkmnpqrstuvwxyz23456789'[b%32]).join(''); ls.set('cm.space',id); this.space=id; this.client=window.supabase.createClient(CONFIG.supabaseUrl,CONFIG.supabaseAnonKey); return this.pull().then(()=>this.subscribe()); },
+  leave(){ ls.del('cm.space'); this.space=null; this.live=false; this.doc={}; this.client=null; this.updateBtn(); reloadState(); },
+  link(){ return location.origin+location.pathname+'?space='+this.space; },
+  updateBtn(){ const b=$('shareBtn'); b.classList.toggle('on',!!(this.space&&this.live)); $('shareTxt').textContent=this.space?(this.live?'ใช้ร่วมกันอยู่':'พื้นที่ร่วม (ออฟไลน์)'):'ใช้ร่วมกัน'; }
+};
+const store={
+  key:k=>`cm.${REGID}.${k}`,
+  get(k,d){const K=store.key(k); if(sync.space&&sync.live)return sync.doc[K]??d; const v=ls.get(K); return v?JSON.parse(v):d;},
+  set(k,v){const K=store.key(k); ls.set(K,JSON.stringify(v)); if(sync.space&&sync.live)sync.set(K,v);}
+};
+const me=()=>ls.get('cm.me')||'';
+
+function reloadState(){watch=new Set(store.get('watch',[])); watchBy=store.get('watchBy',{}); manual=store.get('manual',[]); trips=store.get('trips',[]); curTrip=store.get('curTrip',null); if(typeof render==='function')render();}
+function loadRegion(id){
+  REGID=id; REG=REGIONS[id]; O={lat:REG.origin.lat,lng:REG.origin.lng};
+  document.title=`ไปไหนดี · ${REG.name}`; $('regionName').textContent=REG.name; $('originName').textContent=REG.origin.name;
+  watch=new Set(store.get('watch',[])); watchBy=store.get('watchBy',{}); manual=store.get('manual',[]); trips=store.get('trips',[]); curTrip=store.get('curTrip',null);
+  try{localStorage.setItem('cm.region',id);}catch(e){}
+  const data=(window.PLACES_DATA||{})[id];
+  const apply=()=>{
+    const d=(window.PLACES_DATA||{})[id]||{meta:{},places:[]};
+    PLACES=d.places||[]; META=d.meta||{};
+    const C=PLACES.length?PLACES.reduce((s,p)=>s+p.rating,0)/PLACES.length:4.3, M=100;
+    PLACES.forEach(p=>{p.score=(p.count/(p.count+M))*p.rating+(M/(p.count+M))*C;});
+    $('formula').textContent=PLACES.length?`คะแนนถ่วงน้ำหนัก = ค่าเฉลี่ยเบย์ (m=${M}, C=${C.toFixed(2)})`:'';
+    $('updated').textContent=META.updated||'ยังไม่มีข้อมูล'; $('banner').hidden=!META.sample;
+    buildTypes(); buildPresets(); map.setRegion(O,REG.mapZoom||12); setView('all');
+  };
+  if(data) apply();
+  else{ const sc=document.createElement('script'); sc.src=`data/${id}.js`; sc.onload=apply; sc.onerror=()=>{toast(`ยังไม่มีข้อมูลของ ${REG.name} — รัน collect.py ${id}`);apply();}; document.head.appendChild(sc); }
+}
+$('regionSel').innerHTML=Object.entries(REGIONS).map(([id,r])=>`<option value="${id}">${esc(r.name)}</option>`).join('');
+$('regionSel').addEventListener('change',e=>loadRegion(e.target.value));
+
+// ===================== geo =====================
+const hav=(a,b)=>{const R=6371,dl=(b.lat-a.lat)*Math.PI/180,dn=(b.lng-a.lng)*Math.PI/180,x=Math.sin(dl/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x));};
+const estMin=km=>Math.round(km*1.3*2.2+2);
+const kmForMins=m=>Math.max(1,(m-2)/2.2/1.3);
+const ALL=()=>[...PLACES,...manual];
+const byId=id=>ALL().find(p=>p.id===id);
+
+// ===================== แผนที่ (Leaflet ตอนนี้ → Google Maps เมื่อมี key) =====================
+const map=(()=>{
+  let impl=null, onClick=()=>{};
+  const useGoogle=!!CONFIG.googleMapsKey;
+  const leaflet={
+    m:null,layer:null,circle:null,route:null,origin:null,
+    init(el){this.m=L.map(el,{zoomControl:true,attributionControl:true}).setView([18.79,98.99],12);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(this.m);
+      this.layer=L.layerGroup().addTo(this.m);},
+    setRegion(o,z){this.m.setView([o.lat,o.lng],z);if(this.origin)this.origin.remove();this.origin=L.circleMarker([o.lat,o.lng],{radius:7,color:'#EEF2F7',fillColor:'#101C30',fillOpacity:1,weight:2}).addTo(this.m).bindTooltip(REG.origin.name);},
+    setMarkers(list){this.layer.clearLayers();list.forEach(p=>{const mk=L.circleMarker([p.lat,p.lng],{radius:p.active?7:4,color:p.watch?'#F08CA0':'#101C30',weight:p.watch?2.5:1.5,fillColor:p.active?p.color:'#2F4A74',fillOpacity:1}).addTo(this.layer);mk.bindTooltip(p.label);mk.on('click',()=>onClick(p.id));});},
+    setCircle(km){if(this.circle)this.circle.remove();this.circle=L.circle([O.lat,O.lng],{radius:km*1000,color:'#F2B441',weight:1,dashArray:'4 4',fillColor:'#F2B441',fillOpacity:.05}).addTo(this.m);},
+    setRoute(pts){if(this.route)this.route.remove();this.route=null;if(!pts.length)return;const ll=[[O.lat,O.lng],...pts.map(p=>[p.lat,p.lng])];this.route=L.polyline(ll,{color:'#F2B441',weight:3,dashArray:'6 6'}).addTo(this.m);this.m.fitBounds(this.route.getBounds(),{padding:[30,30]});},
+    resize(){setTimeout(()=>this.m.invalidateSize(),50);}
+  };
+  const google_={
+    m:null,mks:[],circle:null,dr:null,origin:null,
+    init(el){this.m=new google.maps.Map(el,{center:{lat:18.79,lng:98.99},zoom:12,mapId:CONFIG.googleMapId||undefined,disableDefaultUI:true,zoomControl:true,styles:CONFIG.googleMapId?undefined:DARK_STYLE});
+      this.dr=new google.maps.DirectionsRenderer({map:this.m,suppressMarkers:true,polylineOptions:{strokeColor:'#F2B441',strokeWeight:4}});},
+    setRegion(o,z){this.m.setCenter(o);this.m.setZoom(z);if(this.origin)this.origin.setMap(null);this.origin=new google.maps.Marker({position:o,map:this.m,title:REG.origin.name,icon:{path:google.maps.SymbolPath.CIRCLE,scale:7,fillColor:'#101C30',fillOpacity:1,strokeColor:'#EEF2F7',strokeWeight:2}});},
+    setMarkers(list){this.mks.forEach(m=>m.setMap(null));this.mks=list.map(p=>{const mk=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map:this.m,title:p.label,icon:{path:google.maps.SymbolPath.CIRCLE,scale:p.active?7:4,fillColor:p.active?p.color:'#2F4A74',fillOpacity:1,strokeColor:p.watch?'#F08CA0':'#101C30',strokeWeight:p.watch?2.5:1.5}});mk.addListener('click',()=>onClick(p.id));return mk;});},
+    setCircle(km){if(this.circle)this.circle.setMap(null);this.circle=new google.maps.Circle({map:this.m,center:O,radius:km*1000,strokeColor:'#F2B441',strokeWeight:1,fillColor:'#F2B441',fillOpacity:.05});},
+    setRoute(pts){if(!pts.length){this.dr.setDirections({routes:[]});return;}
+      const svc=new google.maps.DirectionsService();
+      svc.route({origin:O,destination:{lat:pts.at(-1).lat,lng:pts.at(-1).lng},waypoints:pts.slice(0,-1).map(p=>({location:{lat:p.lat,lng:p.lng}})),travelMode:google.maps.TravelMode[REG.travelMode||'DRIVING']},(res,st)=>{
+        if(st==='OK'){this.dr.setDirections(res);const legs=res.routes[0].legs;window.dispatchEvent(new CustomEvent('routeLegs',{detail:legs.map(l=>Math.round(l.duration.value/60))}));}});},
+    resize(){google.maps.event.trigger(this.m,'resize');}
+  };
+  const DARK_STYLE=[{elementType:'geometry',stylers:[{color:'#1c2c47'}]},{elementType:'labels.text.fill',stylers:[{color:'#96a6c0'}]},{elementType:'labels.text.stroke',stylers:[{color:'#101c30'}]},{featureType:'road',elementType:'geometry',stylers:[{color:'#2f4a74'}]},{featureType:'water',elementType:'geometry',stylers:[{color:'#0c1626'}]},{featureType:'poi',stylers:[{visibility:'off'}]}];
+  return {
+    ready:false,pending:[],
+    boot(){ if(useGoogle){window.__gmapInit=()=>{impl=google_;impl.init($('map'));this.ready=true;this.pending.forEach(f=>f());this.pending=[];$('mapCap').innerHTML='Google Maps';};
+        const sc=document.createElement('script');sc.src=`https://maps.googleapis.com/maps/api/js?key=${CONFIG.googleMapsKey}&callback=__gmapInit&language=${(REGIONS[CONFIG.defaultRegion]||{}).lang||'th'}`;sc.async=true;document.head.appendChild(sc);}
+      else if(typeof L==='undefined'){impl={setRegion(){},setMarkers(){},setCircle(){},setRoute(){},resize(){}};this.ready=true;$('mapCap').innerHTML='โหลดแผนที่ไม่ได้ — ต้องต่ออินเทอร์เน็ต';}
+      else{impl=leaflet;impl.init($('map'));this.ready=true;$('mapCap').innerHTML='OpenStreetMap · ใส่ key ใน <a href="#" onclick="return false">config.js</a> เพื่อใช้ Google Maps';} },
+    q(f){this.ready?f():this.pending.push(f);},
+    setRegion(o,z){this.q(()=>impl.setRegion(o,z));}, setMarkers(l){this.q(()=>impl.setMarkers(l));},
+    setCircle(km){this.q(()=>impl.setCircle(km));}, setRoute(p){this.q(()=>impl.setRoute(p));},
+    resize(){this.q(()=>impl.resize());}, onClick(f){onClick=f;},
+    moveTo(slot){slot.appendChild($('map'));$('map').style.position='absolute';$('map').style.inset='0';this.resize();}
+  };
+})();
+map.boot(); map.onClick(id=>jumpTo(id));
+
+// ===================== state / filters =====================
+const state={view:'all',types:new Set(),cuisines:new Set(),tags:new Set(),mins:45,mode:'score',score:4.0,pop:3,park:'',price:'',openNow:false,sort:'score',preset:null};
+function buildTags(){const cnt={};ALL().forEach(p=>(p.tags||[]).forEach(t=>cnt[t]=(cnt[t]||0)+1));const ts=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,14).map(x=>x[0]);$('tagRow').hidden=!ts.length;$('tagChips').innerHTML=ts.map(t=>`<button class="chip ${state.tags.has(t)?'on':''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('');}
+function buildCuisines(){buildTags();const cs=[...new Set(ALL().map(p=>p.cuisine).filter(Boolean))];$('cuisineRow').hidden=!cs.length;$('cuisines').innerHTML=cs.map(c=>`<button class="chip ${state.cuisines.has(c)?'on':''}" data-c="${esc(c)}">${esc(c)}</button>`).join('');}
+function buildTypes(){buildCuisines();const present=TYPE_ORDER.filter(t=>PLACES.some(p=>p.type===t));$('types').innerHTML=(present.length?present:TYPE_ORDER).map(t=>`<button class="chip ${state.types.has(t)?'on':''}" data-t="${t}" style="--c:${TYPE_COLOR[t]}"><span class="dot"></span>${t}</button>`).join('');$('mType').innerHTML=TYPE_ORDER.map(t=>`<option>${t}</option>`).join('');}
+function buildPresets(){const ps=REG.presets||CONFIG.presets||[];$('presets').innerHTML=ps.map((p,i)=>`<button class="preset ${state.preset===i?'on':''}" data-p="${i}">${esc(p.label)}</button>`).join('');}
+$('presets').addEventListener('click',e=>{const b=e.target.closest('.preset');if(!b)return;const i=+b.dataset.p;if(state.preset===i){resetFilters();return;}
+  const p=(REG.presets||CONFIG.presets)[i]; resetFilters(false); state.preset=i;
+  state.types=new Set(p.types||[]); state.cuisines=new Set(p.cuisines||[]); state.tags=new Set(p.tags||[]); if(p.mins){state.mins=p.mins;} state.openNow=!!p.openNow; if(p.mode)state.mode=p.mode;
+  syncControls(); render();});
+function resetFilters(re=true){Object.assign(state,{types:new Set(),cuisines:new Set(),tags:new Set(),mins:45,mode:'score',score:4.0,pop:3,park:'',price:'',openNow:false,sort:'score',preset:null});syncControls();if(re)render();}
+function syncControls(){
+  $('mins').value=state.mins;$('minsVal').textContent=state.mins;$('score').value=state.score;$('scoreVal').textContent=state.score.toFixed(1);
+  $('pop').value=state.pop;$('popVal').textContent=POP_STEPS[state.pop].toLocaleString('th-TH');
+  $('park').value=state.park;$('price').value=state.price;$('openNow').checked=state.openNow;$('sort').value=state.sort;
+  document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===state.mode));
+  $('scoreBox').hidden=state.mode!=='score';$('popBox').hidden=state.mode!=='popular';
+  document.querySelectorAll('#types .chip').forEach(c=>c.classList.toggle('on',state.types.has(c.dataset.t)));
+  document.querySelectorAll('#cuisines .chip').forEach(c=>c.classList.toggle('on',state.cuisines.has(c.dataset.c)));
+  document.querySelectorAll('#tagChips .chip').forEach(c=>c.classList.toggle('on',state.tags.has(c.dataset.tag)));
+  document.querySelectorAll('.preset').forEach(b=>b.classList.toggle('on',+b.dataset.p===state.preset));
+}
+const touched=()=>{state.preset=null;document.querySelectorAll('.preset').forEach(b=>b.classList.remove('on'));};
+$('tagChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;const t=b.dataset.tag;state.tags.has(t)?state.tags.delete(t):state.tags.add(t);b.classList.toggle('on');touched();render();});
+$('cuisines').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;const c=b.dataset.c;state.cuisines.has(c)?state.cuisines.delete(c):state.cuisines.add(c);b.classList.toggle('on');touched();render();});
+$('types').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;const t=b.dataset.t;state.types.has(t)?state.types.delete(t):state.types.add(t);b.classList.toggle('on');touched();render();});
+$('mins').addEventListener('input',e=>{state.mins=+e.target.value;$('minsVal').textContent=state.mins;touched();render();});
+$('score').addEventListener('input',e=>{state.score=+e.target.value;$('scoreVal').textContent=state.score.toFixed(1);render();});
+$('pop').addEventListener('input',e=>{state.pop=+e.target.value;$('popVal').textContent=POP_STEPS[state.pop].toLocaleString('th-TH');render();});
+$('modeSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.mode=b.dataset.m;if(state.mode==='popular'&&state.sort==='score')state.sort='count';if(state.mode==='score'&&state.sort==='count')state.sort='score';syncControls();render();});
+['park','price','sort'].forEach(k=>$(k).addEventListener('change',e=>{state[k]=e.target.value;render();}));
+$('openNow').addEventListener('change',e=>{state.openNow=e.target.checked;touched();render();});
+$('reset').addEventListener('click',()=>resetFilters());
+
+function openStatus(p){
+  if(!p.hours)return{known:false};
+  const now=new Date(),d=String(now.getDay()),hm=now.toTimeString().slice(0,5),today=p.hours[d];
+  if(!today)return{known:true,open:false,text:'วันนี้ปิด'};
+  const inR=([o,c])=>c<o?(hm>=o||hm<=c):(hm>=o&&hm<=c);const cur=today.find(inR);
+  return cur?{known:true,open:true,text:'เปิดอยู่ · ถึง '+cur[1]}:{known:true,open:false,text:'ปิด · เปิด '+today[0][0]};
+}
+function filtered(){
+  let list=ALL().filter(p=>{
+    if(state.view==='watch')return watch.has(p.id);
+    if(p.minutes!=null&&p.minutes>state.mins)return false;
+    if(state.mode==='score'){if(p.score!=null&&p.score<state.score)return false;}
+    else{if(p.count==null||p.count<POP_STEPS[state.pop]){if(!p.manual)return false;}}
+    if(state.types.size&&!state.types.has(p.type))return false;
+    if(state.tags.size&&![...state.tags].some(t=>(p.tags||[]).includes(t)))return false;
+    if(state.cuisines.size&&!state.cuisines.has(p.cuisine))return false;
+    if(state.park&&!state.park.split(',').includes(p.parking?.status))return false;
+    if(state.price&&!state.price.split(',').map(Number).includes(p.price))return false;
+    if(state.openNow){const s=openStatus(p);if(!s.known||!s.open)return false;}
+    return true;
+  });
+  const key={score:(a,b)=>(b.score??0)-(a.score??0),minutes:(a,b)=>(a.minutes??999)-(b.minutes??999),count:(a,b)=>(b.count??0)-(a.count??0),opened:(a,b)=>(b.opened||0)-(a.opened||0)}[state.sort];
+  return list.sort(key);
+}
+
+// ===================== การ์ด =====================
+const priceTxt=v=>v==null?'':(v===0?'ฟรี':(REG.currency||'฿').repeat(v));
+const AMEN_ICON={goodForGroups:['👥','กลุ่มใหญ่'],outdoorSeating:['🌿','นั่งกลางแจ้ง'],reservable:['📅','จองได้'],servesCocktails:['🍸','ค็อกเทล'],liveMusic:['🎵','ดนตรีสด'],ev:['⚡','ชาร์จ EV']};
+function amenRow(a){const items=Object.entries(AMEN_ICON).filter(([k])=>a[k]).map(([k,[i,l]])=>`<span title="${l}">${i} ${l}</span>`);return items.length?`<div class="amen">${items.join('')}</div>`:'';}
+function card(p){
+  const c=TYPE_COLOR[p.type]||'#6FB7E0',s=openStatus(p),inTrips=trips.filter(t=>t.stops.includes(p.id));
+  const gpid=p.placeId||(/^(ChIJ|Ei|GhIJ)/.test(p.id)?p.id:null);
+  const gmSave=p.links?.placeUri||(gpid?`https://www.google.com/maps/place/?q=place_id:${gpid}`:(p.maps||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name+' '+REG.name)}`));
+  const img=p.photo?`<img src="${p.photo}" alt="" loading="lazy">`:`<div class="ph" style="--c:${c}"><span>${esc(p.name.slice(0,1))}</span></div>`;
+  const nearby=(p.nearby||[]).map(n=>`<button data-go="${n.id}">${esc(n.name)}${n.minutes?` · ${n.minutes} นาที`:''}</button>`).join('');
+  const onway=(p.onWay||[]).map(n=>`<button data-go="${n.id}">${esc(n.name)}</button>`).join('');
+  const mapsUrl=p.maps||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name+' '+REG.name)}`;
+  return `<article class="card" id="c-${p.id}" data-id="${p.id}">
+    <div class="img" style="--c:${c}">${img}<span class="badge">${p.type}${p.cuisine?` · ${esc(p.cuisine)}`:''}</span>${p.manual?'<span class="badge man">เพิ่มเอง</span>':''}
+      ${s.known?`<span class="open ${s.open?'y':'n'}">${s.text}</span>`:''}
+      <div class="min">${p.minutes!=null?p.minutes:'?'}<small>${p.minutes!=null?`นาที${p.est?' (ประมาณ)':''} · ${p.km} กม.`:'ยังไม่ทราบระยะ'}</small></div></div>
+    <div class="body"><h2 class="name">${esc(p.name)}</h2>
+      <div class="stats">${p.score!=null?`<span><span class="k">${p.score.toFixed(2)}</span> คะแนน</span><span><span class="k star">${p.rating.toFixed(1)}★</span> จาก ${p.count.toLocaleString('th-TH')} รีวิว</span>`:'<span>ยังไม่มีคะแนนรีวิว</span>'}
+        ${p.priceRange?`<span><span class="k">${esc(p.priceRange)}</span></span>`:(p.price!=null?`<span><span class="k">${priceTxt(p.price)}</span></span>`:'')}${p.opened?`<span>เปิด<span class="k">${REG.country==='TH'?'พ.ศ. '+(p.opened+543):'ค.ศ. '+p.opened}</span></span>`:(p.manual?'':'<span>ปีที่เปิด: ไม่ทราบ</span>')}</div>
+      ${p.parking?`<div class="park"><span class="s ${p.parking.status}">จอดรถ: ${p.parking.status}</span><span class="n">${esc(p.parking.note||'')}</span></div>`:''}
+      ${p.amen?amenRow(p.amen):''}
+      ${p.gSummary?`<div class="gsum">${esc(p.gSummary)} <span class="by">— สรุปโดย Google</span></div>`:''}
+      ${p.note||p.by?`<div class="note">${p.note?`“${esc(p.note)}”`:''}${p.by?` <span class="by">เพิ่มโดย ${esc(p.by)}</span>`:''}</div>`:''}
+      ${p.menu?.length?`<div><div class="sec">เมนู/สิ่งที่คนแนะนำ</div><div class="menu">${p.menu.map(m=>`<span>${esc(m)}</span>`).join('')}</div></div>`:''}
+      ${p.highlights?.length||p.caveats?.length?`<div><div class="sec">คนพูดถึงในรีวิว</div><ul class="hl">${(p.highlights||[]).map(h=>`<li>${esc(h)}</li>`).join('')}${(p.caveats||[]).map(h=>`<li class="c">${esc(h)}</li>`).join('')}</ul></div>`:''}
+      ${nearby||onway?`<div><div class="sec">แวะเพิ่มได้</div><div class="links">${nearby?`<span class="via">ใกล้กัน</span>${nearby}`:''}${onway?`<span class="via">ผ่านทาง</span>${onway}`:''}</div></div>`:''}
+      <div class="acts"><button class="heart ${watch.has(p.id)?'on':''}" data-watch="${p.id}">${watch.has(p.id)?'♥ ถูกใจแล้ว':'♡ ถูกใจ'}${watchBy[p.id]?`<span class="by">โดย ${esc(watchBy[p.id])}</span>`:''}</button><button class="${inTrips.length?'on':''}" data-tripmenu="${p.id}">${inTrips.length?`✓ ${esc(inTrips.map(t=>t.name).join(', '))}`:'+ ใส่ทริป'} ▾</button><a class="gm" href="${esc(gmSave)}" target="_blank" rel="noopener" title="เปิดใน Google Maps แล้วกด บันทึก → เลือกลิสต์ที่แชร์กับแฟน">＋ ลิสต์ Google Maps</a>${p.manual?`<button data-del="${p.id}">ลบ</button>`:''}</div>
+      <div class="foot"><span>${(p.tags||[]).join(' · ')}</span><span>${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">ลิงก์ต้นทาง</a> · `:''}${p.links?.reviewsUri?`<a href="${esc(p.links.reviewsUri)}" target="_blank" rel="noopener">รีวิว</a> · `:''}<a href="${esc(p.links?.directionsUri||mapsUrl)}" target="_blank" rel="noopener">${p.links?.directionsUri?'นำทาง →':'เปิดแผนที่ →'}</a></span></div>
+    </div></article>`;
+}
+
+// ===================== render =====================
+let current=[];
+function render(){
+  counts();
+  if(state.view==='trip'){renderTrip();return;}
+  if(state.view==='manual'){renderManual();return;}
+  current=filtered();$('n').textContent=current.length;
+  $('cards').innerHTML=current.length?current.map(card).join(''):(state.view==='watch'?`<div class="empty"><b>ยังไม่มีที่สนใจ</b>กด ♡ บนการ์ดเพื่อเก็บไว้ดูทีหลัง</div>`:`<div class="empty"><b>ยังไม่มีที่เข้าเกณฑ์</b>ลองขยายนาที ลดเกณฑ์รีวิว หรือกด "ล้างตัวกรอง"</div>`);
+  renderPicks(); renderMap();
+}
+function renderPicks(){
+  if(state.view!=='all'){$('topPicks').hidden=true;return;}
+  const pool=current.filter(p=>p.score!=null);
+  const best=pool[0], near=[...pool].sort((a,b)=>(a.minutes??999)-(b.minutes??999)).find(p=>p!==best), popular=[...pool].sort((a,b)=>b.count-a.count).find(p=>p!==best&&p!==near);
+  const items=[[best,'คะแนนดีสุด'],[near,'ใกล้สุด'],[popular,'คนไปเยอะสุด']].filter(x=>x[0]);
+  $('topPicks').hidden=!items.length;
+  $('picks').innerHTML=items.map(([p,why])=>`<button class="pickcard" data-go="${p.id}"><span class="why">${why}</span><span class="t">${esc(p.name)}</span><small>${p.type} · ${p.minutes??'?'} นาที · ${p.rating.toFixed(1)}★ (${p.count.toLocaleString('th-TH')})${p.parking?` · จอดรถ ${p.parking.status}`:''}</small></button>`).join('');
+}
+function renderMap(){
+  if(state.view!=='all'&&state.view!=='watch'){return;}
+  map.moveTo($('mapHost'));
+  const shown=new Set(current.map(p=>p.id));
+  map.setMarkers(ALL().filter(p=>p.lat!=null).map(p=>({id:p.id,lat:p.lat,lng:p.lng,color:TYPE_COLOR[p.type]||'#6FB7E0',label:`${p.name}${p.minutes!=null?` · ${p.minutes} นาที`:''}`,active:shown.has(p.id),watch:watch.has(p.id)})));
+  map.setCircle(state.view==='all'?kmForMins(state.mins):0.001); map.setRoute([]);
+}
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-go]');if(g){$('modal').classList.remove('on');jumpTo(g.dataset.go);return;}
+  const w=e.target.closest('[data-watch]');if(w){toggleWatch(w.dataset.watch);return;}
+  const tm=e.target.closest('[data-tripmenu]');if(tm){showTripMenu(tm.dataset.tripmenu,tm);return;}
+  const tp=e.target.closest('[data-trippick]');if(tp){toggleTripIn(tp.dataset.tripid,tp.dataset.tripid==='__new'?null:tp.dataset.tripid);closeTripMenu();return;}
+  if(!e.target.closest('.tmenu'))closeTripMenu();
+  const t=e.target.closest('[data-trip]');if(t){toggleTrip(t.dataset.trip);return;}
+  const d=e.target.closest('[data-del]');if(d){delManual(d.dataset.del);return;}
+  const b=e.target.closest('[data-mv]');if(b){const tr=trip();const i=+b.dataset.i,j=i+ +b.dataset.mv;if(j<0||j>=tr.stops.length)return;[tr.stops[i],tr.stops[j]]=[tr.stops[j],tr.stops[i]];saveTrips();render();return;}
+  const r=e.target.closest('[data-rm]');if(r){trip().stops.splice(+r.dataset.rm,1);saveTrips();render();return;}
+  const a=e.target.closest('[data-add]');if(a){toggleTrip(a.dataset.add);return;}
+});
+function refreshModal(){if($('modal').classList.contains('on')){const c=$('modalCard').querySelector('.card');if(c)$('modalCard').innerHTML=card(byId(c.dataset.id));}}
+function toggleWatch(id){if(watch.has(id)){watch.delete(id);delete watchBy[id];}else{watch.add(id);if(me())watchBy[id]=me();}store.set('watch',[...watch]);store.set('watchBy',watchBy);toast(watch.has(id)?'เก็บไว้ในที่สนใจแล้ว':'เอาออกจากที่สนใจ');render();refreshModal();}
+function jumpTo(id){
+  if(state.view!=='all'&&state.view!=='watch')setView('all');
+  let el=$('c-'+id);
+  if(!el){const p=byId(id);if(!p)return;resetFilters(false);if(p.minutes!=null)state.mins=Math.max(5,Math.ceil(p.minutes/5)*5);if(p.score!=null)state.score=Math.min(state.score,Math.floor(p.score*10)/10);syncControls();render();el=$('c-'+id);}
+  if(!el)return;el.scrollIntoView({behavior:'smooth',block:'center'});
+  document.querySelectorAll('.card.hot').forEach(c=>c.classList.remove('hot'));el.classList.add('hot');setTimeout(()=>el.classList.remove('hot'),2000);
+}
+
+// ===================== tabs / misc =====================
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;setView(b.dataset.v);});
+function setView(v){state.view=v;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('vList').hidden=!(v==='all'||v==='watch');$('vTrip').hidden=v!=='trip';$('vManual').hidden=v!=='manual';document.querySelector('.deck').hidden=v==='watch';render();}
+$('kmlBtn').addEventListener('click',()=>{
+  const pts=ALL().filter(p=>watch.has(p.id)&&p.lat!=null); if(!pts.length){toast('ยังไม่มีที่ถูกใจที่มีพิกัด');return;}
+  const byType={}; pts.forEach(p=>(byType[p.type]=byType[p.type]||[]).push(p));
+  const x=v=>String(v??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+  const kml=`<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>ที่ถูกใจ · ${x(REG.name)}</name>`+
+    Object.entries(byType).map(([t,ps])=>`<Folder><name>${x(t)}</name>`+ps.map(p=>`<Placemark><name>${x(p.name)}</name><description>${x([p.rating?`${p.rating}★ (${p.count} รีวิว)`:'',p.minutes!=null?`${p.minutes} นาทีจาก${REG.origin.name}`:'',p.parking?`จอดรถ: ${p.parking.status} ${p.parking.note||''}`:'',p.menu?.length?`เมนู: ${p.menu.join(', ')}`:'',...(p.highlights||[]),p.note||'',p.maps||''].filter(Boolean).join('\n'))}</description><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`).join('')+`</Folder>`).join('')+`</Document></kml>`;
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'}));a.download=`favorites-${REGID}.kml`;a.click();
+  toast('ไปที่ Google My Maps → นำเข้า → เลือกไฟล์นี้ แล้วกดแชร์');
+});
+function counts(){$('watchTools').hidden=state.view!=='watch';$('nWatch').textContent=watch.size;$('nManual').textContent=manual.length;const t=trip();$('nTrip').textContent=t?t.stops.length:0;$('trayN').textContent=t?t.stops.length:0;$('tray').hidden=!(t&&t.stops.length&&state.view!=='trip');}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1800);}
+
+// ===================== สุ่ม =====================
+let last=null;
+function roll(){const pool0=state.view==='watch'?current:filtered();if(!pool0.length){toast('ยังไม่มีที่เข้าเกณฑ์');return;}
+  const pool=pool0.length>1?pool0.filter(p=>p!==last):pool0;const p=pool[Math.floor(Math.random()*pool.length)];last=p;
+  $('modalTtl').textContent=p.name;$('modalCard').innerHTML=card(p);$('goBtn').href=p.maps||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name+' '+REG.name)}`;$('modal').classList.add('on');$('againBtn').focus();}
+$('pickBtn').addEventListener('click',roll);$('againBtn').addEventListener('click',roll);
+$('closeBtn').addEventListener('click',()=>$('modal').classList.remove('on'));
+$('modal').addEventListener('click',e=>{if(e.target===$('modal'))$('modal').classList.remove('on');});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('modal').classList.remove('on');});
+
+// ===================== ทริป =====================
+const trip=()=>trips.find(t=>t.id===curTrip)||null;
+const saveTrips=()=>{store.set('trips',trips);store.set('curTrip',curTrip);};
+function newTrip(name){const t={id:'t'+Date.now(),region:REGID,name:name||`ทริป ${trips.length+1}`,stops:[],by:me()||null,created:new Date().toISOString().slice(0,10)};trips.push(t);curTrip=t.id;saveTrips();return t;}
+let menuFor=null;
+function closeTripMenu(){document.querySelectorAll('.tmenu').forEach(m=>m.remove());}
+function showTripMenu(pid,anchor){
+  closeTripMenu(); const m=document.createElement('div'); m.className='tmenu';
+  m.innerHTML=(trips.length?trips.map(t=>`<button class="${t.stops.includes(pid)?'in':''}" data-tripid="${t.id}"><span>${esc(t.name||'(ไม่มีชื่อ)')}</span><span>${t.stops.includes(pid)?'✓ เอาออก':`+ ${t.stops.length} จุด`}</span></button>`).join(''):'')+`<button class="new" data-tripid="__new">+ สร้างทริปใหม่แล้วใส่</button>`;
+  m.querySelectorAll('[data-tripid]').forEach(b=>b.setAttribute('data-trippick',pid));
+  const host=anchor.closest('.card')||document.body; host.appendChild(m);
+  const r=anchor.getBoundingClientRect(),h=host.getBoundingClientRect(); m.style.left=Math.max(8,r.left-h.left)+'px'; m.style.top=(r.bottom-h.top+6)+'px';
+  menuFor=pid;
+}
+function toggleTripIn(_,tid){const pid=menuFor;let t=tid?trips.find(x=>x.id===tid):null;
+  if(!t){const name=prompt('ชื่อทริปใหม่',`ทริป ${trips.length+1}`);if(name===null)return;t=newTrip(name);}
+  curTrip=t.id;const i=t.stops.indexOf(pid);if(i>=0){t.stops.splice(i,1);toast(`เอาออกจาก “${t.name}”`);}else{t.stops.push(pid);toast(`ใส่ใน “${t.name}” แล้ว`);}saveTrips();render();refreshModal();}
+function toggleTrip(id){let t=trip()||newTrip();const i=t.stops.indexOf(id);if(i>=0){t.stops.splice(i,1);toast('เอาออกจากทริปแล้ว');}else{t.stops.push(id);toast(`ใส่ใน “${t.name}” แล้ว`);}saveTrips();render();refreshModal();}
+$('tripNew').addEventListener('click',()=>{newTrip();render();$('tripName').focus();$('tripName').select();});
+$('tripDel').addEventListener('click',()=>{const t=trip();if(!t)return;if(!confirm(`ลบทริป “${t.name}” ?`))return;trips=trips.filter(x=>x!==t);curTrip=trips[0]?.id||null;saveTrips();render();});
+$('tripSel').addEventListener('change',e=>{curTrip=e.target.value;saveTrips();render();});
+$('tripName').addEventListener('input',e=>{const t=trip();if(t){t.name=e.target.value;saveTrips();$('tripSel').options[$('tripSel').selectedIndex].text=t.name||'(ไม่มีชื่อ)';}});
+$('trayGo').addEventListener('click',()=>setView('trip'));
+let routeLegs=null; window.addEventListener('routeLegs',e=>{routeLegs=e.detail;if(state.view==='trip')renderTripList();});
+function legs(t){const pts=t.stops.map(byId).filter(Boolean);const out=[];let prev={lat:O.lat,lng:O.lng,name:REG.origin.name};
+  pts.forEach((p,i)=>{let min=null,real=false;if(routeLegs&&routeLegs.length===pts.length){min=routeLegs[i];real=true;}else if(i===0&&p.minutes!=null&&!p.est){min=p.minutes;real=true;}else if(p.lat!=null&&prev.lat!=null)min=estMin(hav(prev,p));out.push({from:prev,to:p,min,real});prev=p;});return out;}
+function renderTrip(){
+  $('tripSel').innerHTML=trips.length?trips.map(t=>`<option value="${t.id}" ${t.id===curTrip?'selected':''}>${esc(t.name||'(ไม่มีชื่อ)')}${t.by?` · ${esc(t.by)}`:''}</option>`).join(''):'<option>ยังไม่มีทริป</option>';
+  const t=trip();map.moveTo($('tripMapSlot'));
+  if(!t){$('tripName').value='';$('stops').innerHTML=`<div class="empty"><b>ยังไม่มีทริป</b>กด “+ ทริปใหม่” แล้วไปกด “+ ใส่ทริป” บนการ์ดที่อยากไป</div>`;$('tripMin').innerHTML='0<small>นาที</small>';$('sugg').innerHTML='';$('tripMaps').removeAttribute('href');map.setMarkers([]);map.setRoute([]);return;}
+  $('tripName').value=t.name;routeLegs=null;
+  const pts=t.stops.map(byId).filter(p=>p&&p.lat!=null);
+  map.setCircle(0.001);map.setMarkers(pts.map((p,i)=>({id:p.id,lat:p.lat,lng:p.lng,color:'#F2B441',label:`${i+1}. ${p.name}`,active:true,watch:false})));map.setRoute(pts);
+  renderTripList();
+}
+function renderTripList(){
+  const t=trip();if(!t)return;const L=legs(t),pts=L.map(l=>l.to);
+  if(!pts.length)$('stops').innerHTML=`<div class="empty"><b>ทริปนี้ยังว่าง</b>กลับไปหน้าค้นหาแล้วกด “+ ใส่ทริป” บนการ์ด</div>`;
+  else{let h=`<div class="legorigin">เริ่มที่ <b>${esc(REG.origin.name)}</b></div>`;
+    L.forEach((l,i)=>{const p=l.to,s=openStatus(p);h+=`<div class="leg">${l.min!=null?`${l.real?'':'≈ '}${l.min} นาที`:'ไม่ทราบระยะ'}</div><div class="stop"><div class="idx">${i+1}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${p.type}${p.parking?` · จอดรถ: ${p.parking.status}`:''}${p.rating?` · ${p.rating.toFixed(1)}★`:''}${p.menu?.length?` · ${esc(p.menu[0])}`:''}${s.known?` · ${s.text}`:''}</div></div><div class="ctl"><button data-mv="-1" data-i="${i}" title="เลื่อนขึ้น">↑</button><button data-mv="1" data-i="${i}" title="เลื่อนลง">↓</button><button data-rm="${i}" title="เอาออก">✕</button></div></div>`;});
+    $('stops').innerHTML=h;}
+  const total=L.reduce((s,l)=>s+(l.min||0),0),unknown=L.some(l=>l.min==null),allReal=L.length&&L.every(l=>l.real);
+  $('tripMin').innerHTML=`${total}<small>นาที${allReal?'':' (ประมาณ)'}${unknown?' · บางช่วงไม่ทราบ':''} · ยังไม่รวมเวลาที่แต่ละที่</small>`;
+  const geo=pts.filter(p=>p.lat!=null);
+  if(geo.length){const lastP=geo.at(-1),wp=geo.slice(0,-1).map(p=>`${p.lat},${p.lng}`).join('|');$('tripMaps').href=`https://www.google.com/maps/dir/?api=1&origin=${O.lat},${O.lng}&destination=${lastP.lat},${lastP.lng}${wp?`&waypoints=${encodeURIComponent(wp)}`:''}&travelmode=${(REG.travelMode||'DRIVING').toLowerCase()}`;}else $('tripMaps').removeAttribute('href');
+  const cand=[];ALL().forEach(p=>{if(t.stops.includes(p.id)||p.lat==null)return;let best=null;pts.forEach(q=>{if(q.lat==null)return;const d=hav(p,q);if(d<=1.5&&(best==null||d<best.d))best={d,q};});if(best)cand.push({p,...best});});
+  cand.sort((a,b)=>(b.p.score??0)-(a.p.score??0));
+  $('sugg').innerHTML=cand.length?cand.slice(0,6).map(c=>`<button data-add="${c.p.id}"><span>${esc(c.p.name)}</span><small>${c.p.type} · ${estMin(c.d)} นาทีจาก ${esc(c.q.name.slice(0,16))}</small></button>`).join(''):'<div class="hint">ใส่จุดในทริปก่อน แล้วระบบจะแนะนำที่ใกล้ ๆ ให้</div>';
+}
+$('tripCopy').addEventListener('click',()=>{const t=trip();if(!t)return;const L=legs(t);const txt=[t.name,`เริ่ม ${REG.origin.name}`,...L.map((l,i)=>`${i+1}. ${l.to.name}${l.min!=null?` (${l.real?'':'≈'}${l.min} นาที)`:''}${l.to.parking?` จอดรถ: ${l.to.parking.status}`:''}`),$('tripMaps').href?`แผนที่: ${$('tripMaps').href}`:''].join('\n');navigator.clipboard?.writeText(txt).then(()=>toast('คัดลอกแล้ว'),()=>prompt('คัดลอกข้อความนี้',txt));});
+$('tripExport').addEventListener('click',()=>{const t=trip();if(!t)return;dl(`${t.name||'trip'}.json`,JSON.stringify({...t,stops:t.stops.map(byId)},null,1));});
+function dl(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;a.click();}
+
+// ===================== เพิ่มเอง =====================
+function parseLoc(s){s=(s||'').trim();if(!s)return null;
+  for(const r of [/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/,/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/,/[?&](?:q|query|ll|center)=(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/,/^\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$/]){const m=s.match(r);if(m)return{lat:+m[1],lng:+m[2]};}return null;}
+const HINT='ถ้ามีพิกัด ระบบจะประเมินนาทีและวางบนแผนที่ให้ (ประมาณ) — รัน collect.py ทีหลังจะได้ค่าจริง';
+$('mLoc').addEventListener('input',e=>{const g=parseLoc(e.target.value)||parseLoc($('mUrl').value);$('mLocHint').innerHTML=g?`<b>อ่านพิกัดได้</b> ${g.lat.toFixed(4)}, ${g.lng.toFixed(4)} → ประมาณ ${estMin(hav(O,g))} นาทีจาก${REG.origin.name}`:HINT;});
+$('mUrl').addEventListener('input',()=>$('mLoc').dispatchEvent(new Event('input')));
+$('mAdd').addEventListener('click',()=>{const name=$('mName').value.trim();if(!name){toast('ใส่ชื่อร้านก่อน');$('mName').focus();return;}
+  const g=parseLoc($('mLoc').value)||parseLoc($('mUrl').value);
+  const p={id:'m'+Date.now(),manual:true,region:REGID,by:me()||null,name,type:$('mType').value,cuisine:$('mCuisine').value.trim()||null,url:$('mUrl').value.trim()||null,note:$('mNote').value.trim()||null,lat:g?.lat??null,lng:g?.lng??null,minutes:g?estMin(hav(O,g)):null,km:g?+(hav(O,g)*1.3).toFixed(1):null,est:!!g,rating:null,count:null,score:null,price:null,opened:null,hours:null,parking:null,menu:[],highlights:[],caveats:[],tags:[],nearby:[],onWay:[],maps:g?`https://www.google.com/maps/search/?api=1&query=${g.lat},${g.lng}`:null,photo:null,added:new Date().toISOString().slice(0,10)};
+  manual.push(p);store.set('manual',manual);if($('mWatch').checked){watch.add(p.id);store.set('watch',[...watch]);}
+  ['mName','mUrl','mLoc','mNote','mCuisine'].forEach(k=>$(k).value='');$('mLocHint').textContent=HINT;toast('เพิ่มแล้ว');buildCuisines();render();});
+function delManual(id){if(!confirm('ลบรายการนี้?'))return;manual=manual.filter(p=>p.id!==id);watch.delete(id);trips.forEach(t=>t.stops=t.stops.filter(s=>s!==id));store.set('manual',manual);store.set('watch',[...watch]);saveTrips();render();}
+function renderManual(){$('mList').innerHTML=manual.length?manual.slice().reverse().map(p=>`<div class="stop"><div class="idx" style="font-size:14px;color:var(--mist)">${p.type.slice(0,3)}</div><div><div class="nm">${esc(p.name)}</div><div class="meta">${p.minutes!=null?`≈ ${p.minutes} นาที`:'ยังไม่ทราบระยะ'}${p.note?` · ${esc(p.note)}`:''}${p.url?` · <a href="${esc(p.url)}" target="_blank" rel="noopener">ลิงก์</a>`:''}</div></div><div class="ctl"><button data-watch="${p.id}" title="สนใจ">${watch.has(p.id)?'♥':'♡'}</button><button data-trip="${p.id}" title="ใส่ทริป">+</button><button data-del="${p.id}" title="ลบ">✕</button></div></div>`).join(''):'<div class="hint">ยังไม่มี — เพิ่มจากฟอร์มด้านซ้าย</div>';}
+$('mExport').addEventListener('click',()=>dl(`manual.${REGID}.json`,JSON.stringify(manual.map(p=>({id:p.id,name:p.name,type:p.type,url:p.url,note:p.note,lat:p.lat,lng:p.lng})),null,1)));
+
+// ===================== แปะลิงก์ → ระบบไปเช็คต่อ =====================
+const ENDPOINT=CONFIG.resolveEndpoint||'/api/resolve';
+const isFile=location.protocol==='file:';
+$('lGo').addEventListener('click',resolveLink);
+$('lUrl').addEventListener('keydown',e=>{if(e.key==='Enter')resolveLink();});
+async function resolveLink(){
+  const url=$('lUrl').value.trim(); if(!url){toast('วางลิงก์ก่อน');return;}
+  const st=$('lSt'); st.className='st';
+  if(isFile){ // เปิดจากไฟล์ตรง ๆ ไม่มี backend → เติมได้แค่พิกัด/ชื่อจาก URL
+    const g=parseLoc(url); let name=''; const m=url.match(/\/maps\/place\/([^\/@?]+)/); if(m)name=decodeURIComponent(m[1]).replace(/\+/g,' ');
+    $('mUrl').value=url; $('mLoc').value=g?`${g.lat}, ${g.lng}`:''; $('mName').value=name; $('mLoc').dispatchEvent(new Event('input'));
+    document.querySelector('details.adv').open=true;
+    st.innerHTML=`ตอนนี้เปิดเป็นไฟล์ในเครื่อง ระบบดึงข้อมูลจากลิงก์ให้ไม่ได้ ${g||name?'แต่อ่าน'+(name?'ชื่อ':'')+(g?(name?'และ':'')+'พิกัด':'')+'จากลิงก์ให้แล้ว ตรวจแล้วกด “เพิ่มเข้ารายการ” ด้านล่าง':'กรอกชื่อด้านล่างเองก่อน'} — เมื่ออัปขึ้น Netlify/Vercel ปุ่มนี้จะเติมรีวิว ที่จอดรถ นาที ให้อัตโนมัติ`; st.classList.add('err'); return; }
+  st.innerHTML='<span class="spin"></span>กำลังเปิดลิงก์และค้นใน Google Places…';
+  try{
+    const r=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,region:REGID,origin:O,travelMode:REG.travelMode||'DRIVE',lang:REG.lang||'th',country:REG.country||'TH'})});
+    const j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||r.statusText);
+    const p=Object.assign({id:'m'+Date.now(),manual:true,region:REGID,by:me()||null,url,added:new Date().toISOString().slice(0,10),menu:[],highlights:[],caveats:[],tags:[],nearby:[],onWay:[],photo:null,est:false},j.place);
+    if(p.rating!=null&&p.count!=null){const C=PLACES.length?PLACES.reduce((a,b)=>a+b.rating,0)/PLACES.length:4.3,M=100;p.score=(p.count/(p.count+M))*p.rating+(M/(p.count+M))*C;}
+    if(p.minutes==null&&p.lat!=null){p.minutes=estMin(hav(O,p));p.km=+(hav(O,p)*1.3).toFixed(1);p.est=true;}
+    manual.push(p);store.set('manual',manual);watch.add(p.id);store.set('watch',[...watch]);
+    $('lUrl').value=''; buildCuisines(); st.textContent=`เพิ่ม “${p.name}” แล้ว${p.enriched?' พร้อมรีวิว/ที่จอดรถ/นาที':' (ได้แค่ชื่อกับพิกัด — ตั้ง GOOGLE_MAPS_API_KEY ฝั่งเซิร์ฟเวอร์เพื่อเติมข้อมูลเต็ม)'} · อยู่ในที่ถูกใจแล้ว`; st.classList.add('ok'); render();
+  }catch(e){ st.textContent='ดึงไม่สำเร็จ: '+e.message+' — ลองวางลิงก์ Google Maps แบบเต็ม หรือกรอกเองด้านล่าง'; st.classList.add('err'); document.querySelector('details.adv').open=true; $('mUrl').value=url; }
+}
+
+// ===================== ใช้ร่วมกัน =====================
+function openShare(){
+  $('shareOff').hidden=sync.enabled; $('shareNew').hidden=!sync.enabled||!!sync.space; $('shareOn').hidden=!sync.space; $('shareLeave').hidden=!sync.space;
+  if(sync.space){$('shareLink').textContent=sync.link();$('shareState').textContent=sync.live?'เชื่อมต่ออยู่ · เปลี่ยนอะไรอีกเครื่องเห็นทันที':'กำลังเชื่อมต่อ…';}
+  $('meName').value=me(); $('shareModal').classList.add('on');
+}
+$('shareBtn').addEventListener('click',openShare);
+$('shareClose').addEventListener('click',()=>$('shareModal').classList.remove('on'));
+$('shareModal').addEventListener('click',e=>{if(e.target===$('shareModal'))$('shareModal').classList.remove('on');});
+$('meName').addEventListener('change',e=>{ls.set('cm.me',e.target.value.trim());toast('บันทึกชื่อแล้ว');});
+$('shareCreate').addEventListener('click',async()=>{if(!me()){const n=prompt('ชื่อเล่นของคุณ');if(n)ls.set('cm.me',n.trim());} $('shareCreate').disabled=true; await sync.create(); $('shareCreate').disabled=false; openShare(); toast('สร้างพื้นที่ร่วมแล้ว ส่งลิงก์ให้อีกคนได้เลย');});
+$('shareCopy').addEventListener('click',()=>{navigator.clipboard?.writeText(sync.link()).then(()=>toast('คัดลอกลิงก์แล้ว'),()=>prompt('คัดลอกลิงก์นี้',sync.link()));});
+$('shareLeave').addEventListener('click',()=>{if(!confirm('ออกจากพื้นที่ร่วม? เครื่องนี้จะกลับไปใช้ข้อมูลเฉพาะเครื่อง (ข้อมูลบนพื้นที่ร่วมยังอยู่)'))return;sync.leave();$('shareModal').classList.remove('on');});
+
+// ===================== boot =====================
+sync.init();
+let startRegion=CONFIG.defaultRegion||Object.keys(REGIONS)[0];
+try{const r=localStorage.getItem('cm.region');if(r&&REGIONS[r])startRegion=r;}catch(e){}
+$('regionSel').value=startRegion; loadRegion(startRegion);
+</script>
+</body>
+</html>
