@@ -3,6 +3,7 @@
 // GET /api/collect?region=X   → รันเมือง X
 //   &estimate=1  → ประเมินจำนวน call/งบ โดยไม่รันจริง
 //   &force=1     → ข้าม min-interval (ปกติกันรันซ้ำภายใน 6 วัน)
+//   &mode=photos → เติมรูปร้านที่ยังไม่มี (Place Details ขอ photos, Essentials tier ฟรี 10K/เดือน)
 // โหมดเบา (Pro tier, ฟรี 5,000/เดือน): อัปเดต rating/จำนวนรีวิวของร้านเดิม + หา id ใหม่
 // ร้านใหม่เท่านั้นที่ขอข้อมูลเต็ม (Enterprise+Atmosphere, ฟรี 1,000/เดือน) จำกัด 40 ร้าน/รอบ
 // ตัวกันงบ: นับ call รายเดือนใน Supabase (row meta:apiusage) — ถ้าจะเกินกันชนของโควต้าฟรี จะปฏิเสธ
@@ -19,7 +20,9 @@ const PAGES_PER_SEED = 2;
 const MIN_INTERVAL_DAYS = 6;
 
 const LIGHT_FIELDS = ["id","displayName","location","types","primaryType","primaryTypeDisplayName","rating","userRatingCount","priceLevel"].map(f=>"places."+f).join(",");
-const FULL_FIELDS = ["id","displayName","formattedAddress","location","types","primaryType","primaryTypeDisplayName","rating","userRatingCount","priceLevel","priceRange","regularOpeningHours","currentOpeningHours","parkingOptions","reviewSummary","generativeSummary","googleMapsUri","googleMapsLinks","editorialSummary","openingDate","goodForGroups","outdoorSeating","reservable","servesCocktails","liveMusic","evChargeOptions"].map(f=>"places."+f).join(",")+",routingSummaries";
+const FULL_FIELDS = ["id","displayName","formattedAddress","location","types","primaryType","primaryTypeDisplayName","rating","userRatingCount","priceLevel","priceRange","regularOpeningHours","currentOpeningHours","parkingOptions","reviewSummary","generativeSummary","googleMapsUri","googleMapsLinks","editorialSummary","openingDate","goodForGroups","outdoorSeating","reservable","servesCocktails","liveMusic","evChargeOptions","photos"].map(f=>"places."+f).join(",")+",routingSummaries";
+const BKEY = "AIzaSyAHDUfaFwHVsTr9hISAZPW0qmsTULyqOWM"; // browser key (สาธารณะอยู่แล้วใน photo URL เดิมทุกอัน)
+const photoUrl = g => { const ph = (g.photos||[])[0]; return ph && ph.name ? "https://places.googleapis.com/v1/"+ph.name+"/media?maxWidthPx=900&key="+BKEY : null; };
 
 const PRICE = {PRICE_LEVEL_FREE:0,PRICE_LEVEL_INEXPENSIVE:1,PRICE_LEVEL_MODERATE:2,PRICE_LEVEL_EXPENSIVE:3,PRICE_LEVEL_VERY_EXPENSIVE:3};
 const T = {FOOD:"ร้านอาหาร",CAFE:"คาเฟ่",BAR:"บาร์",WAT:"วัด",MARKET:"ตลาด",NATURE:"ธรรมชาติ",ATTR:"ที่เที่ยว"};
@@ -110,6 +113,35 @@ export default async function handler(req, res){
     const seeds = REG.seeds || [];
     const mode = ["DRIVE","WALK","BICYCLE","TWO_WHEELER"].includes(REG.travelMode) ? REG.travelMode : "DRIVE";
 
+    // โหมดเติมรูป: GET ?mode=photos[&estimate=1][&cap=N] — Place Details ขอ photos อย่างเดียว (Essentials tier)
+    if (q.mode === "photos") {
+      const ESS_BUDGET = 9000; // กันชนใต้โควต้าฟรี Essentials 10,000/เดือน
+      const cap = Math.min(+q.cap || 200, 300);
+      const cur2 = (await sbGet("data:"+regionId)) || { places: [] };
+      cur2.places = cur2.places || [];
+      const missing = cur2.places.filter(p => !p.photo && p.placeId);
+      const targets = missing.slice(0, cap);
+      const u0 = (await sbGet("meta:apiusage")) || {};
+      const u = u0.month === month ? u0 : { month, pro: 0, ea: 0 };
+      const willFree = (u.ess||0) + targets.length <= ESS_BUDGET;
+      if (q.estimate) return res.status(200).json({ mode: "photos", region: regionId, missingPhoto: missing.length, plannedCalls: targets.length, usedThisMonth: { ess: u.ess||0 }, freeBudget: { ess: ESS_BUDGET }, willStayFree: willFree });
+      if (!willFree) return res.status(429).json({ error: "จะเกินโควต้าฟรี Essentials เดือนนี้ ไม่รัน", usage: u });
+      let calls = 0, got = 0;
+      await pool(targets, 5, async (p) => {
+        try {
+          const r = await fetch("https://places.googleapis.com/v1/places/"+p.placeId, { headers: { "X-Goog-Api-Key": GKEY, "X-Goog-FieldMask": "id,photos" } });
+          calls++;
+          if (!r.ok) return;
+          const u2 = photoUrl(await r.json());
+          if (u2) { p.photo = u2; got++; }
+        } catch (e) {}
+      });
+      await sbUpsert("data:"+regionId, cur2);
+      u.ess = (u.ess||0) + calls;
+      await sbUpsert("meta:apiusage", u);
+      return res.status(200).json({ mode: "photos", region: regionId, targeted: targets.length, photosAdded: got, apiCalls: { ess: calls }, usageThisMonth: u });
+    }
+
     // budget (โควต้าฟรีรายเดือน)
     const usage0 = (await sbGet("meta:apiusage")) || {};
     const usage = usage0.month === month ? usage0 : { month, pro: 0, ea: 0 };
@@ -182,6 +214,7 @@ export default async function handler(req, res){
       p.priceRange = priceRangeTxt(g); p.opened = (g.openingDate && g.openingDate.year) || null;
       if (g.googleMapsUri) p.maps = g.googleMapsUri;
       p.address = g.formattedAddress || "";
+      p.photo = photoUrl(g) || p.photo;
     });
 
     cur.places = cur.places.concat(newOnes);
