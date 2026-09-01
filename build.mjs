@@ -12,7 +12,7 @@ for (let i = 0; i < 5; i++) {
 }
 const buf = brotliDecompressSync(Buffer.from(b64, 'base64'));
 const sha = createHash('sha256').update(buf).digest('hex');
-if (sha !== '8ca6137c581e5812f46e8faa99af49a6f4120924abd791b37a55f322b879e0db') {
+if (sha !== '878e771f4783e3227e73859e2ea429db0bb24a92a451cf089ffa62cf22e70343') {
   throw new Error('index.html sha mismatch: ' + sha);
 }
 await writeFile('public/index.html', buf);
