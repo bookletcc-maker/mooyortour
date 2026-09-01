@@ -1,10 +1,10 @@
 // ตั้งค่าหน้าเว็บ
 window.CONFIG = {
-  googleMapsKey: "",          // ใส่ Google Maps JavaScript API key แล้วแผนที่จะสลับจาก OpenStreetMap เป็น Google Maps อัตโนมัติ
+  googleMapsKey: "AIzaSyAHDUfaFwHVsTr9hISAZPW0qmsTULyqOWM",          // ใส่ Google Maps JavaScript API key แล้วแผนที่จะสลับจาก OpenStreetMap เป็น Google Maps อัตโนมัติ
   defaultRegion: "chiangmai",
   // พื้นที่ร่วม (ใช้ด้วยกันหลายเครื่อง/หลายคน) — ใส่ค่าจาก Supabase → Settings → API แล้วรัน supabase.sql ก่อน
-  supabaseUrl: "",            // เช่น https://xxxx.supabase.co
-  supabaseAnonKey: "",        // anon public key (ใส่ในเบราว์เซอร์ได้ ไม่ใช่ service_role)
+  supabaseUrl: "https://xxpyyvpaoxfneodnxiuy.supabase.co",            // เช่น https://xxxx.supabase.co
+  supabaseAnonKey: "sb_publishable_4qaMwaT5K7GFuAGjpZEa3g_lZiqmarU",        // anon public key (ใส่ในเบราว์เซอร์ได้ ไม่ใช่ service_role)
   // ปุ่มแนะนำ (mood) — ใช้ร่วมทุกภูมิภาค; ใช้ได้ทั้ง types / cuisines / tags / mins / openNow; ภูมิภาคไหนอยากมีชุดของตัวเองให้ใส่ "presets" ใน regions.js
   presets: [
     { label: "หิวแล้ว ใกล้ ๆ",  types: ["ร้านอาหาร"], mins: 15, openNow: true },
