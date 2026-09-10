@@ -6,7 +6,7 @@ let b64 = '';
 for (let i = 0; i < 5; i++) { b64 += (await readFile('_idx/index.br.b64.' + i, 'utf8')).replace(/\s+/g, ''); }
 const buf = brotliDecompressSync(Buffer.from(b64, 'base64'));
 const sha = createHash('sha256').update(buf).digest('hex');
-if (sha !== 'ceafdef43adaa0f1b44058b054f25d0fa1e66252e2ed371411d1a8aaa62b6ebe') throw new Error('index.html sha mismatch: ' + sha);
+if (sha !== 'ab81e9e79c633370422a85de2ad00cf7cab5a4a20de3871738ccf1effc0d25bd') throw new Error('index.html sha mismatch: ' + sha);
 await writeFile('public/index.html', buf);
 await writeFile('public/regions.js', await readFile('regions.js'));
 await writeFile('public/config.js', await readFile('config.js'));
