@@ -4,7 +4,7 @@
 //   &estimate=1  → ประเมินจำนวน call/งบ โดยไม่รันจริง
 //   &force=1     → ข้าม min-interval (ปกติกันรันซ้ำภายใน 6 วัน)
 //   &mode=enrich → เติมข้อมูลเต็มให้ร้านใหม่ที่ค้าง (Enterprise+Atmosphere ฟรี 1,000/เดือน)
-//   &mode=photos → เติมรูปร้านที่ยังไม่มี (Place Details ขอ photos, Essentials tier ฟรี 10K/เดือน)
+//   &mode=photos → เช็คว่าร้านไหนมีรูปบน Google (ตั้ง hasPhoto; Place Details photos, Essentials ฟรี 10K/เดือน)
 //   mode=add     → เพิ่มร้านจากผู้ใช้ (ลิงก์/ชื่อ) — ดูในโค้ดด้านล่าง
 // โหมดเบา (Pro tier, ฟรี 5,000/เดือน): อัปเดต rating/จำนวนรีวิวของร้านเดิม + หา id ใหม่
 // ร้านใหม่เท่านั้นที่ขอข้อมูลเต็ม (Enterprise+Atmosphere, ฟรี 1,000/เดือน) จำกัด 40 ร้าน/รอบ
@@ -24,8 +24,8 @@ const ROLL_DAYS = 20;     // ห่างจากจุดอ้างอิง
 
 const LIGHT_FIELDS = ["id","displayName","location","types","primaryType","primaryTypeDisplayName","rating","userRatingCount","priceLevel"].map(f=>"places."+f).join(",");
 const FULL_FIELDS = ["id","displayName","formattedAddress","location","types","primaryType","primaryTypeDisplayName","rating","userRatingCount","priceLevel","priceRange","regularOpeningHours","currentOpeningHours","parkingOptions","reviewSummary","generativeSummary","googleMapsUri","googleMapsLinks","editorialSummary","openingDate","goodForGroups","outdoorSeating","reservable","servesCocktails","liveMusic","evChargeOptions","photos"].map(f=>"places."+f).join(",")+",routingSummaries";
-const BKEY = "AIzaSyAHDUfaFwHVsTr9hISAZPW0qmsTULyqOWM"; // browser key (สาธารณะอยู่แล้วใน photo URL เดิมทุกอัน)
-const photoUrl = g => { const ph = (g.photos||[])[0]; return ph && ph.name ? "https://places.googleapis.com/v1/"+ph.name+"/media?maxWidthPx=900&key="+BKEY : null; };
+// รูป: Google ห้ามเก็บ photo name (หมดอายุได้) → เก็บแค่ hasPhoto แล้วให้หน้าเว็บขอรูปสดผ่าน /api/photo (มีเพดานรายเดือน)
+const hasPhotoOf = g => !!((g.photos||[]).length);
 
 const PRICE = {PRICE_LEVEL_FREE:0,PRICE_LEVEL_INEXPENSIVE:1,PRICE_LEVEL_MODERATE:2,PRICE_LEVEL_EXPENSIVE:3,PRICE_LEVEL_VERY_EXPENSIVE:3};
 const T = {FOOD:"ร้านอาหาร",CAFE:"คาเฟ่",BAR:"บาร์",WAT:"วัด",MARKET:"ตลาด",NATURE:"ธรรมชาติ",ATTR:"ที่เที่ยว"};
@@ -150,7 +150,7 @@ async function enrichPlace(p, REG, mode, today){
   p.priceRange = priceRangeTxt(g); p.opened = (g.openingDate && g.openingDate.year) || null;
   if (g.googleMapsUri) p.maps = g.googleMapsUri;
   p.address = g.formattedAddress || "";
-  p.photo = photoUrl(g) || p.photo;
+  p.hasPhoto = hasPhotoOf(g); delete p.photo;
   if (g.primaryTypeDisplayName && g.primaryTypeDisplayName.text) p.typeLabel = g.primaryTypeDisplayName.text;
   return { called: true, ok: true };
 }
@@ -178,7 +178,7 @@ export default async function handler(req, res){
       const cap = Math.min(+q.cap || 200, 300);
       const cur2 = (await sbGet("data:"+regionId)) || { places: [] };
       cur2.places = cur2.places || [];
-      const missing = cur2.places.filter(p => !p.photo && p.placeId);
+      const missing = cur2.places.filter(p => p.hasPhoto === undefined && p.placeId);
       const targets = missing.slice(0, cap);
       const u0 = (await sbGet("meta:apiusage")) || {};
       const u = u0.month === month ? u0 : { month, pro: 0, ea: 0 };
@@ -191,14 +191,14 @@ export default async function handler(req, res){
           const r = await fetch("https://places.googleapis.com/v1/places/"+p.placeId, { headers: { "X-Goog-Api-Key": GKEY, "X-Goog-FieldMask": "id,photos" } });
           calls++;
           if (!r.ok) return;
-          const u2 = photoUrl(await r.json());
-          if (u2) { p.photo = u2; got++; }
+          p.hasPhoto = hasPhotoOf(await r.json()); delete p.photo;
+          if (p.hasPhoto) got++;
         } catch (e) {}
       });
       await sbUpsert("data:"+regionId, cur2);
       u.ess = (u.ess||0) + calls;
       await sbUpsert("meta:apiusage", u);
-      return res.status(200).json({ mode: "photos", region: regionId, targeted: targets.length, photosAdded: got, apiCalls: { ess: calls }, usageThisMonth: u });
+      return res.status(200).json({ mode: "photos", region: regionId, targeted: targets.length, withPhoto: got, apiCalls: { ess: calls }, usageThisMonth: u });
     }
 
     // โหมดเติมข้อมูลร้านใหม่ที่ยังไม่ได้ enrich (เช่นเกิน cap 40/รอบ): GET ?mode=enrich[&estimate=1][&cap=N]
@@ -261,7 +261,7 @@ export default async function handler(req, res){
             p.priceRange = priceRangeTxt(g); p.opened = (g.openingDate && g.openingDate.year) || null;
             if (g.googleMapsUri) p.maps = g.googleMapsUri;
             p.address = g.formattedAddress || "";
-            p.photo = photoUrl(g);
+            p.hasPhoto = hasPhotoOf(g); delete p.photo;
             enriched = true;
           }
         } catch (e) {}
@@ -276,7 +276,7 @@ export default async function handler(req, res){
       if ((u.pro||0) + 1 > PRO_BUDGET) return res.status(429).json({ error: "โควต้าฟรีเดือนนี้เต็ม (ค้นหา) ลองใหม่ต้นเดือนหน้า", usage: u });
       const body = { textQuery: r0.query, languageCode: REG.lang || "th", regionCode: REG.country || "TH", pageSize: 5,
         locationBias: { circle: { center: r0.loc ? { latitude: r0.loc.lat, longitude: r0.loc.lng } : { latitude: REG.origin.lat, longitude: REG.origin.lng }, radius: r0.loc ? 2000 : Math.min((REG.searchRadiusKm||30)*1000, 50000) } } };
-      const j = await searchText(body, LIGHT_FIELDS + ",places.formattedAddress,places.photos");
+      const j = await searchText(body, LIGHT_FIELDS + ",places.formattedAddress");
       u.pro = (u.pro||0) + 1;
       await sbUpsert("meta:apiusage", u);
       const cur4 = (await sbGet("data:"+regionId)) || { places: [] };
@@ -285,7 +285,7 @@ export default async function handler(req, res){
         const nm2 = (g.displayName && g.displayName.text) || "?";
         return { id: g.id, name: nm2, address: g.formattedAddress || "", rating: g.rating ?? null, count: g.userRatingCount ?? null,
           lat: g.location && g.location.latitude, lng: g.location && g.location.longitude,
-          type: nameRuleType(nm2) || mapGType([g.primaryType||"", ...(g.types||[])]), photo: photoUrl(g), exists: have.has(g.id) };
+          type: nameRuleType(nm2) || mapGType([g.primaryType||"", ...(g.types||[])]), exists: have.has(g.id) };
       });
       return res.status(200).json({ query: r0.query, via: r0.via, srcUrl: r0.srcUrl, candidates, apiCalls: { pro: 1 }, usageThisMonth: u });
     }
