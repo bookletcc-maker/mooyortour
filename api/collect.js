@@ -37,12 +37,17 @@ const TYPE_MAP = [
   [["market","shopping_mall"],T.MARKET],
   [["park","hiking_area","campground","waterfall","garden","natural_feature","lake","reservoir"],T.NATURE],
 ];
-function mapGType(types){ for (const [keys,label] of TYPE_MAP) if ((types||[]).some(t=>keys.some(k=>String(t).includes(k)))) return label; return T.ATTR; }
+// จับคู่แบบทั้งคำ (คั่นด้วย _) และให้ primaryType (ตัวแรก) ชนะ — กัน "barbecue_restaurant" ถูกนับเป็นบาร์
+function mapGType(types){
+  for (const t0 of (types||[])) { const t = "_"+String(t0||"")+"_"; if (t === "__") continue;
+    for (const [keys,label] of TYPE_MAP) if (keys.some(k => t.includes("_"+k+"_"))) return label; }
+  return T.ATTR;
+}
 function nameRuleType(name){
   const n = String(name||"");
   if (/道の駅|michinoeki|michi-no-eki|roadside station|road station/i.test(n)) return T.MARKET;
   if (/^ถนนคนเดิน/.test(n)) return T.MARKET;
-  if (/onsen|温泉|ออนเซ็น/i.test(n)) return T.ATTR;
+  if (/onsen|温泉|ออนเซ็น/i.test(n) && !/ไข่ออนเซ็น|onsen egg|onsen tamago/i.test(n)) return T.ATTR;
   if (/^วัด|shrine|神社/i.test(n)) return T.WAT;
   if (/^ตลาด/.test(n)) return T.MARKET;
   return null;
