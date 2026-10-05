@@ -3,6 +3,7 @@
 // GET /api/collect?region=X   → รันเมือง X
 //   &estimate=1  → ประเมินจำนวน call/งบ โดยไม่รันจริง
 //   &force=1     → ข้าม min-interval (ปกติกันรันซ้ำภายใน 6 วัน)
+//   &mode=enrich → เติมข้อมูลเต็มให้ร้านใหม่ที่ค้าง (Enterprise+Atmosphere ฟรี 1,000/เดือน)
 //   &mode=photos → เติมรูปร้านที่ยังไม่มี (Place Details ขอ photos, Essentials tier ฟรี 10K/เดือน)
 //   mode=add     → เพิ่มร้านจากผู้ใช้ (ลิงก์/ชื่อ) — ดูในโค้ดด้านล่าง
 // โหมดเบา (Pro tier, ฟรี 5,000/เดือน): อัปเดต rating/จำนวนรีวิวของร้านเดิม + หา id ใหม่
@@ -19,6 +20,7 @@ const EA_BUDGET = 900;     // กันชนใต้โควต้าฟร�
 const NEW_ENRICH_CAP = 40; // เติมข้อมูลเต็มร้านใหม่สูงสุดต่อรอบ
 const PAGES_PER_SEED = 2;
 const MIN_INTERVAL_DAYS = 6;
+const ROLL_DAYS = 20;     // ห่างจากจุดอ้างอิงอย่างน้อยกี่วันถึงคำนวณ "มาแรง" รอบใหม่
 
 const LIGHT_FIELDS = ["id","displayName","location","types","primaryType","primaryTypeDisplayName","rating","userRatingCount","priceLevel"].map(f=>"places."+f).join(",");
 const FULL_FIELDS = ["id","displayName","formattedAddress","location","types","primaryType","primaryTypeDisplayName","rating","userRatingCount","priceLevel","priceRange","regularOpeningHours","currentOpeningHours","parkingOptions","reviewSummary","generativeSummary","googleMapsUri","googleMapsLinks","editorialSummary","openingDate","goodForGroups","outdoorSeating","reservable","servesCocktails","liveMusic","evChargeOptions","photos"].map(f=>"places."+f).join(",")+",routingSummaries";
@@ -127,6 +129,27 @@ function priceRangeTxt(p){
   if (lo!=null) return `${sym}${lo.toLocaleString()}+`; return null;
 }
 
+// เติมข้อมูลเต็ม 1 ร้าน (Text Search + FULL_FIELDS + routing = Enterprise+Atmosphere 1 call)
+async function enrichPlace(p, REG, mode, today){
+  let j; try {
+    j = await searchText({ textQuery: p.name, languageCode: REG.lang || "th", regionCode: REG.country || "TH", pageSize: 1,
+      locationBias: { circle: { center: { latitude: p.lat, longitude: p.lng }, radius: 800 } },
+      routingParameters: { origin: { latitude: REG.origin.lat, longitude: REG.origin.lng }, travelMode: mode } }, FULL_FIELDS);
+  } catch (e) { return { called: false }; }
+  p.enrichTried = today;
+  const g = (j.places||[])[0]; if (!g || g.id !== p.id) return { called: true, ok: false };
+  const legs = (j.routingSummaries||[])[0] && j.routingSummaries[0].legs || [];
+  if (legs.length) { p.minutes = Math.round(legs.reduce((s,l)=>s+parseInt(l.duration||"0"),0)/60); p.km = +(legs.reduce((s,l)=>s+(l.distanceMeters||0),0)/1000).toFixed(1); p.est = false; }
+  p.hours = parseHours(g); p.parking = parkingFromApi(g); p.amen = amenities(g); p.links = g.googleMapsLinks || null;
+  p.gSummary = (g.reviewSummary && g.reviewSummary.text && g.reviewSummary.text.text) || (g.generativeSummary && g.generativeSummary.overview && g.generativeSummary.overview.text) || null;
+  p.priceRange = priceRangeTxt(g); p.opened = (g.openingDate && g.openingDate.year) || null;
+  if (g.googleMapsUri) p.maps = g.googleMapsUri;
+  p.address = g.formattedAddress || "";
+  p.photo = photoUrl(g) || p.photo;
+  if (g.primaryTypeDisplayName && g.primaryTypeDisplayName.text) p.typeLabel = g.primaryTypeDisplayName.text;
+  return { called: true, ok: true };
+}
+
 export default async function handler(req, res){
   res.setHeader("Access-Control-Allow-Origin", "*");
   try {
@@ -171,6 +194,24 @@ export default async function handler(req, res){
       u.ess = (u.ess||0) + calls;
       await sbUpsert("meta:apiusage", u);
       return res.status(200).json({ mode: "photos", region: regionId, targeted: targets.length, photosAdded: got, apiCalls: { ess: calls }, usageThisMonth: u });
+    }
+
+    // โหมดเติมข้อมูลร้านใหม่ที่ยังไม่ได้ enrich (เช่นเกิน cap 40/รอบ): GET ?mode=enrich[&estimate=1][&cap=N]
+    if (q.mode === "enrich") {
+      const cap = Math.min(+q.cap || 100, 200);
+      const cur5 = (await sbGet("data:"+regionId)) || { places: [] };
+      cur5.places = cur5.places || [];
+      const pending = cur5.places.filter(p => p.firstSeen && p.est && !p.enrichTried && p.placeId && p.lat != null);
+      const u0 = (await sbGet("meta:apiusage")) || {};
+      const u = u0.month === month ? u0 : { month, pro: 0, ea: 0 };
+      const targets = pending.slice(0, Math.max(0, Math.min(cap, EA_BUDGET - (u.ea||0))));
+      if (q.estimate) return res.status(200).json({ mode: "enrich", region: regionId, pending: pending.length, plannedCalls: targets.length, usedThisMonth: { ea: u.ea||0 }, freeBudget: { ea: EA_BUDGET }, willStayFree: (u.ea||0) + targets.length <= EA_BUDGET });
+      let calls = 0, ok = 0;
+      await pool(targets, 4, async (p) => { const r = await enrichPlace(p, REG, mode, today); if (r.called) calls++; if (r.ok) ok++; });
+      await sbUpsert("data:"+regionId, cur5);
+      u.ea = (u.ea||0) + calls;
+      await sbUpsert("meta:apiusage", u);
+      return res.status(200).json({ mode: "enrich", region: regionId, targeted: targets.length, enriched: ok, apiCalls: { ea: calls }, remaining: pending.length - targets.length, usageThisMonth: u });
     }
 
     // โหมดเพิ่มร้านจากผู้ใช้: POST {mode:"add", region, q:<ลิงก์/ชื่อ>, name?} → คืน candidates
@@ -254,7 +295,8 @@ export default async function handler(req, res){
 
     const cur = (await sbGet("data:"+regionId)) || { meta: {}, places: [] };
     cur.meta = cur.meta || {}; cur.places = cur.places || [];
-    if (!q.force && cur.meta.lastLightAt && (Date.now() - Date.parse(cur.meta.lastLightAt)) < MIN_INTERVAL_DAYS*864e5)
+    const isCron = /vercel-cron/i.test(String((req.headers && req.headers["user-agent"]) || ""));
+    if (!q.force && !isCron && cur.meta.lastLightAt && (Date.now() - Date.parse(cur.meta.lastLightAt)) < MIN_INTERVAL_DAYS*864e5)
       return res.status(429).json({ error: "เพิ่งรันไปเมื่อ " + cur.meta.lastLightAt + " (ใส่ force=1 ถ้าจะรันซ้ำ)" });
 
     const byId = new Map(cur.places.map(p => [p.id, p]));
@@ -275,13 +317,20 @@ export default async function handler(req, res){
     });
 
     // 2) merge: อัปเดตร้านเดิม + เก็บร้านใหม่
-    let updated = 0; const newOnes = [];
+    let updated = 0, rolled = 0; const newOnes = [];
     for (const [gid, g] of found) {
       const ex = byId.get(gid);
       const cnt = g.userRatingCount;
       if (ex) {
-        if (typeof cnt === "number" && typeof ex.count === "number" && cnt !== ex.count) { ex.cntPrev = ex.count; ex.cntDelta = cnt - ex.count; ex.cntAt = today; }
-        if (typeof cnt === "number") ex.count = cnt;
+        // "มาแรง" = รีวิวเพิ่มในรอบ ~1 เดือน: เก็บจุดอ้างอิง (cntBase@cntBaseAt) แล้วคำนวณ delta ใหม่เมื่อห่าง ≥ ROLL_DAYS เท่านั้น
+        // รันกลางเดือนจึงไม่ทับผลเดือนที่แล้วด้วยช่วงสั้น ๆ (อัปเดตแค่ count/rating)
+        if (typeof cnt === "number") {
+          if (ex.cntBase == null && typeof ex.count === "number") { ex.cntBase = ex.count; ex.cntBaseAt = ex.cntAt || today; }
+          const baseAge = ex.cntBaseAt ? (Date.parse(today) - Date.parse(ex.cntBaseAt)) / 864e5 : Infinity;
+          if (typeof ex.cntBase === "number" && baseAge >= ROLL_DAYS) { ex.cntPrev = ex.cntBase; ex.cntDelta = cnt - ex.cntBase; ex.cntAt = today; ex.cntBase = cnt; ex.cntBaseAt = today; rolled++; }
+          else if (ex.cntBase == null) { ex.cntBase = cnt; ex.cntBaseAt = today; }
+          ex.count = cnt;
+        }
         if (typeof g.rating === "number") ex.rating = g.rating;
         updated++;
       } else {
@@ -292,7 +341,7 @@ export default async function handler(req, res){
         const name = (g.displayName && g.displayName.text) || "?";
         newOnes.push({ id: gid, placeId: gid, name, type: nameRuleType(name) || mapGType(allTypes), typeLabel: (g.primaryTypeDisplayName && g.primaryTypeDisplayName.text) || null,
           lat, lng, minutes: Math.round(d*1.3*2.2+2), km: +(d*1.3).toFixed(1), est: true,
-          rating: g.rating ?? null, count: cnt ?? null, cntPrev: cnt ?? null, cntDelta: 0, cntAt: today,
+          rating: g.rating ?? null, count: cnt ?? null, cntPrev: cnt ?? null, cntDelta: 0, cntAt: today, cntBase: cnt ?? null, cntBaseAt: today,
           price: PRICE[g.priceLevel] ?? null, opened: null, hours: null, parking: null, photo: null, cuisine: null,
           menu: [], highlights: [], caveats: [], tags: [], nearby: [], onWay: [],
           maps: "https://www.google.com/maps/place/?q=place_id:"+gid, firstSeen: today });
@@ -301,23 +350,7 @@ export default async function handler(req, res){
 
     // 3) เติมข้อมูลเต็มเฉพาะร้านใหม่ (จำกัดจำนวน + งบ)
     const toEnrich = newOnes.slice(0, Math.min(NEW_ENRICH_CAP, Math.max(0, EA_BUDGET - (usage.ea||0))));
-    await pool(toEnrich, 4, async (p) => {
-      let j; try {
-        j = await searchText({ textQuery: p.name, languageCode: REG.lang || "th", regionCode: REG.country || "TH", pageSize: 1,
-          locationBias: { circle: { center: { latitude: p.lat, longitude: p.lng }, radius: 800 } },
-          routingParameters: { origin: { latitude: REG.origin.lat, longitude: REG.origin.lng }, travelMode: mode } }, FULL_FIELDS);
-        eaCalls++;
-      } catch (e) { return; }
-      const g = (j.places||[])[0]; if (!g || g.id !== p.id) return;
-      const legs = (j.routingSummaries||[])[0] && j.routingSummaries[0].legs || [];
-      if (legs.length) { p.minutes = Math.round(legs.reduce((s,l)=>s+parseInt(l.duration||"0"),0)/60); p.km = +(legs.reduce((s,l)=>s+(l.distanceMeters||0),0)/1000).toFixed(1); p.est = false; }
-      p.hours = parseHours(g); p.parking = parkingFromApi(g); p.amen = amenities(g); p.links = g.googleMapsLinks || null;
-      p.gSummary = (g.reviewSummary && g.reviewSummary.text && g.reviewSummary.text.text) || (g.generativeSummary && g.generativeSummary.overview && g.generativeSummary.overview.text) || null;
-      p.priceRange = priceRangeTxt(g); p.opened = (g.openingDate && g.openingDate.year) || null;
-      if (g.googleMapsUri) p.maps = g.googleMapsUri;
-      p.address = g.formattedAddress || "";
-      p.photo = photoUrl(g) || p.photo;
-    });
+    await pool(toEnrich, 4, async (p) => { const r = await enrichPlace(p, REG, mode, today); if (r.called) eaCalls++; });
 
     cur.places = cur.places.concat(newOnes);
     cur.meta.updated = today; cur.meta.lastLightAt = new Date().toISOString();
@@ -325,7 +358,7 @@ export default async function handler(req, res){
     usage.pro = (usage.pro||0) + proCalls; usage.ea = (usage.ea||0) + eaCalls;
     await sbUpsert("meta:apiusage", usage);
 
-    return res.status(200).json({ region: regionId, seen: found.size, updatedExisting: updated, newPlaces: newOnes.length, newNames: newOnes.slice(0,10).map(p=>p.name), enrichedFull: toEnrich.length, apiCalls: { pro: proCalls, ea: eaCalls }, usageThisMonth: usage, stillFree: usage.pro <= PRO_BUDGET && usage.ea <= EA_BUDGET });
+    return res.status(200).json({ region: regionId, seen: found.size, updatedExisting: updated, hotRecomputed: rolled, newPlaces: newOnes.length, newNames: newOnes.slice(0,10).map(p=>p.name), enrichedFull: toEnrich.length, apiCalls: { pro: proCalls, ea: eaCalls }, usageThisMonth: usage, stillFree: usage.pro <= PRO_BUDGET && usage.ea <= EA_BUDGET });
   } catch (e) {
     return res.status(500).json({ error: String(e && e.message || e) });
   }
