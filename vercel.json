@@ -3,5 +3,8 @@
   "outputDirectory": "public",
   "framework": null,
   "functions": { "api/collect.js": { "maxDuration": 60 } },
-  "crons": [ { "path": "/api/collect", "schedule": "0 20 1 * *" } ]
+  "crons": [
+    { "path": "/api/collect", "schedule": "0 20 1 * *" },
+    { "path": "/api/ping", "schedule": "0 3 * * *" }
+  ]
 }
